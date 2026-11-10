@@ -7,4 +7,9 @@
         <RootNamespace>lazer_echo</RootNamespace>
     </PropertyGroup>
 
+    <ItemGroup>
+      <None Include="wwwroot\test2.jpeg" />
+      <None Include="wwwroot\test1.jpg" />
+    </ItemGroup>
+
 </Project>
