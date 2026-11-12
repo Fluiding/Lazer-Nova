@@ -8,8 +8,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <None Include="wwwroot\test2.jpeg" />
       <None Include="wwwroot\test1.jpg" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="11.0.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="14.0.1-beta2"/>
     </ItemGroup>
 
 </Project>
