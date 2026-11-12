@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using osu.Game.Online.Metadata;
 
 // ReSharper disable UnusedMember.Global
 
