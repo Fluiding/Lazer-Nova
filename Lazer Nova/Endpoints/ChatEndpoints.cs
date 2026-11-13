@@ -9,7 +9,7 @@ public static class ChatEndpoints
 {
 	public static void Register()
 	{
-		Server.App.MapPost("/api/v2/chat/updates", () =>
+		Server.App.MapGet("/api/v2/chat/updates", () =>
 		{
 			return Results.Content(JsonConvert.SerializeObject(
 				new GetUpdatesResponse
@@ -20,7 +20,7 @@ public static class ChatEndpoints
 			), "application/json");
 		});
 
-		Server.App.MapPost("/api/v2/chat/channels", () =>
+		Server.App.MapGet("/api/v2/chat/channels", () =>
 		{
 			return Results.Content(JsonConvert.SerializeObject(
 				new List<Channel>()

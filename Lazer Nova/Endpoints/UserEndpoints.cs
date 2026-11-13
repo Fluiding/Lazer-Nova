@@ -1,4 +1,5 @@
-﻿using LazerNova.Services;
+﻿using LazerNova.Models;
+using LazerNova.Services;
 using Newtonsoft.Json;
 using osu.Game.Online.API.Requests.Responses;
 
@@ -8,11 +9,30 @@ public static class UserEndpoints
 {
 	public static void Register()
 	{
-		Server.App.MapGet("/api/v2/users/{id}", UserService.SearchUser);
-		Server.App.MapGet("/api/v2/users/{id}/osu", UserService.SearchUser);
-		Server.App.MapGet("/api/v2/users/{id}/mania", UserService.SearchUser);
-		Server.App.MapGet("/api/v2/users/{id}/taiko", UserService.SearchUser);
-		Server.App.MapGet("/api/v2/users/{id}/fruits", UserService.SearchUser);
+		Server.App.MapGet("/api/v2/users/{id}", (string id, string? key) => Results.Content(
+			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
+			"application/json"
+		));
+
+		Server.App.MapGet("/api/v2/users/{id}/osu", (string id, string? key) => Results.Content(
+			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
+			"application/json"
+		));
+
+		Server.App.MapGet("/api/v2/users/{id}/mania", (string id, string? key) => Results.Content(
+			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
+			"application/json"
+		));
+
+		Server.App.MapGet("/api/v2/users/{id}/taiko", (string id, string? key) => Results.Content(
+			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
+			"application/json"
+		));
+
+		Server.App.MapGet("/api/v2/users/{id}/fruits", (string id, string? key) => Results.Content(
+			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
+			"application/json"
+		));
 
 		Server.App.MapGet("/api/v2/me", (HttpRequest request) =>
 		{
@@ -20,7 +40,7 @@ public static class UserEndpoints
 				return Results.Unauthorized();
 
 			var token = AuthService.GetToken(request);
-			var users = Server.Database.GetCollection<DBUser>();
+			var users = Server.Database.GetCollection<DBUser>("users");
 			var existing = users.FindOne(x => x.AccessToken == token);
 
 			return Results.Content(

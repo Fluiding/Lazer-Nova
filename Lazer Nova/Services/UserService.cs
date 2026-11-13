@@ -1,4 +1,5 @@
-﻿using osu.Game.Online.API.Requests.Responses;
+﻿using LazerNova.Models;
+using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Users;
 
 namespace LazerNova.Services;
@@ -7,15 +8,18 @@ public static class UserService
 {
 	public static DBUser? SearchUser(string id, string? key)
 	{
-		var users = Server.Database.GetCollection<DBUser>();
-		var existing = users.FindOne(x => key == "id" ? x.Id == int.Parse(id) : x.Username == id);
-		return existing ?? null;
+		var users = Server.Database.GetCollection<DBUser>("users");
+		var user = key == "id"
+			? users.FindById(int.Parse(id))
+			: users.FindOne(x => x.Username == id);
+
+		return user;
 	}
 
 	public static DBUser? GetCurrentUser(HttpRequest request)
 	{
 		var token = AuthService.GetToken(request);
-		var users = Server.Database.GetCollection<DBUser>();
+		var users = Server.Database.GetCollection<DBUser>("users");
 		var existing = users.FindOne(x => x.AccessToken == token);
 
 		return existing;
@@ -23,7 +27,7 @@ public static class UserService
 
 	public static DBUser GetNewUser()
 	{
-		return new DBUser
+		return new()
 		{
 			Id = 42,
 			JoinDate = DateTimeOffset.UtcNow,

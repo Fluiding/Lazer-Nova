@@ -5,7 +5,9 @@ namespace LazerNova.Services;
 
 public static class NotificationService
 {
-	public static async void HandleWebsocket(HttpContext context)
+	private static readonly List<WebSocket> Clients = [];
+
+	public static async Task HandleWebsocket(HttpContext context)
 	{
 		if (!context.WebSockets.IsWebSocketRequest)
 			return;
@@ -13,37 +15,74 @@ public static class NotificationService
 		Console.WriteLine("Notification WS connected");
 
 		using var socket = await context.WebSockets.AcceptWebSocketAsync();
-		var buffer = new byte[4096];
 
-		while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
+		Clients.Add(socket);
+
+		try
 		{
-			using var message = new MemoryStream();
-			WebSocketReceiveResult result;
-			do
-			{
-				result = await socket.ReceiveAsync(
-					new ArraySegment<byte>(buffer),
-					context.RequestAborted
-				);
+			var buffer = new byte[4096];
 
-				if (result.MessageType == WebSocketMessageType.Close)
+			while (socket.State == WebSocketState.Open &&
+			       !context.RequestAborted.IsCancellationRequested)
+			{
+				using var message = new MemoryStream();
+				WebSocketReceiveResult result;
+
+				do
 				{
-					Console.WriteLine("Notification WS closed");
-					return;
-				}
+					result = await socket.ReceiveAsync(
+						new ArraySegment<byte>(buffer),
+						context.RequestAborted
+					);
 
-				message.Write(buffer, 0, result.Count);
-			} while (!result.EndOfMessage);
+					if (result.MessageType == WebSocketMessageType.Close)
+					{
+						Console.WriteLine("Notification WS closed");
 
-			if (result.MessageType == WebSocketMessageType.Text)
-			{
+						if (socket.State == WebSocketState.CloseReceived)
+							await socket.CloseOutputAsync(
+								WebSocketCloseStatus.NormalClosure,
+								"Connection closed",
+								CancellationToken.None
+							);
+
+						return;
+					}
+
+					message.Write(buffer, 0, result.Count);
+				} while (!result.EndOfMessage);
+
+				if (result.MessageType != WebSocketMessageType.Text)
+					continue;
+
 				var text = Encoding.UTF8.GetString(message.ToArray());
 				Console.WriteLine($"=== New notification text ===\n{text}\n==========");
 			}
-			else
-			{
-				Console.WriteLine("Received notification WS binary");
-			}
+		}
+		catch (WebSocketException)
+		{
+			Console.WriteLine("Notification WS disconnected unexpectedly");
+		}
+		catch (OperationCanceledException)
+		{
+			Console.WriteLine("Notification WS request cancelled");
+		}
+		finally
+		{
+			Clients.Remove(socket);
+
+			if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+				try
+				{
+					await socket.CloseOutputAsync(
+						WebSocketCloseStatus.NormalClosure,
+						"Connection closed",
+						CancellationToken.None
+					);
+				}
+				catch (WebSocketException) { }
+
+			Console.WriteLine("Notification WS disconnected");
 		}
 	}
 }

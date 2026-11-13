@@ -15,13 +15,11 @@ public class LoggingHubFilter(ILogger<LoggingHubFilter> logger) : IHubFilter
 			Hub: {Hub}
 			Method: {Method}
 			Connection: {Connection}
-			Arguments: {Arguments}
 			=============================
 			""",
 			context.Hub.GetType().Name,
 			context.HubMethodName,
-			context.Context.ConnectionId,
-			JsonSerializer.Serialize(context.HubMethodArguments)
+			context.Context.ConnectionId
 		);
 
 		try

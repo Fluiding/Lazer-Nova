@@ -2,6 +2,7 @@
 using LazerNova.Hubs;
 using LiteDB;
 using Microsoft.AspNetCore.SignalR;
+using osu.Game.Online;
 
 namespace LazerNova;
 
@@ -13,6 +14,7 @@ public static class Server
 
 	public static async Task Main(string[] args)
 	{
+		BsonMapper.Global.IncludeFields = true;
 		Database = new LiteDatabase("server.db");
 
 		var builder = WebApplication.CreateBuilder(args);
@@ -24,7 +26,10 @@ public static class Server
 
 		builder.Services.AddSingleton<LoggingHubFilter>();
 		builder.Services.AddSignalR(options => { options.AddFilter<LoggingHubFilter>(); })
-			.AddMessagePackProtocol();
+			.AddMessagePackProtocol(options =>
+			{
+				options.SerializerOptions = SignalRUnionWorkaroundResolver.OPTIONS;
+			});
 
 		builder.Logging.SetMinimumLevel(LogLevel.Trace);
 		builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR", LogLevel.Trace);

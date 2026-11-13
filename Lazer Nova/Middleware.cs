@@ -1,6 +1,6 @@
 ﻿namespace LazerNova;
 
-public class Middleware
+public static class Middleware
 {
 	public static void Register()
 	{
