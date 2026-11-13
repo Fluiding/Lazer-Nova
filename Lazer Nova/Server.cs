@@ -1,6 +1,5 @@
 ﻿using LazerNova.Endpoints;
 using LazerNova.Hubs;
-using LazerNova.Models;
 using LazerNova.Services;
 using LiteDB;
 using Microsoft.AspNetCore.SignalR;
@@ -13,7 +12,7 @@ public static class Server
 	public const string Hostname = "https://localhost:5176";
 	public static LiteDatabase Database { get; private set; } = null!;
 	public static WebApplication App { get; private set; } = null!;
-	public static HttpClient Http = new();
+	public static readonly HttpClient Http = new();
 
 	public static async Task Main(string[] args)
 	{

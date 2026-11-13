@@ -1,5 +1,4 @@
-﻿using LazerNova.Models;
-using LazerNova.Services;
+﻿using LazerNova.Services;
 using Newtonsoft.Json;
 using osu.Game.Online.API.Requests.Responses;
 
@@ -51,7 +50,7 @@ public static class UserEndpoints
 
 		Server.App.MapGet("/api/v2/friends", (HttpRequest request) =>
 		{
-			var user = UserService.GetCurrentUser(request);
+			var user = UserService.GetUserFromRequest(request);
 			if (user == null)
 				return Results.Unauthorized();
 
@@ -67,7 +66,7 @@ public static class UserEndpoints
 
 		Server.App.MapGet("/api/v2/blocks", (HttpRequest request) =>
 		{
-			var user = UserService.GetCurrentUser(request);
+			var user = UserService.GetUserFromRequest(request);
 			if (user == null)
 				return Results.Unauthorized();
 
@@ -83,7 +82,7 @@ public static class UserEndpoints
 
 		Server.App.MapGet("/api/v2/me/beatmapset-favourites", (HttpRequest request) =>
 		{
-			var user = UserService.GetCurrentUser(request);
+			var user = UserService.GetUserFromRequest(request);
 			if (user == null)
 				return Results.Unauthorized();
 

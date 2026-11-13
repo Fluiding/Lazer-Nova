@@ -1,5 +1,4 @@
-﻿using LazerNova.Models;
-using osu.Game.Online.API.Requests.Responses;
+﻿using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Users;
 
 namespace LazerNova.Services;
@@ -16,7 +15,7 @@ public static class UserService
 		return user;
 	}
 
-	public static User? GetCurrentUser(HttpRequest request)
+	public static User? GetUserFromRequest(HttpRequest request)
 	{
 		var token = AuthService.GetToken(request);
 		var users = Server.Database.GetCollection<User>("users");
@@ -47,7 +46,7 @@ public static class UserService
 			IsBNG = false,
 			IsBot = false,
 			Active = true,
-			WasRecentlyOnline = false,
+			WasRecentlyOnline = true,
 
 			PMFriendsOnly = false,
 

@@ -1,6 +1,6 @@
 ﻿using osu.Game.Online.API.Requests.Responses;
 
-namespace LazerNova.Models;
+namespace LazerNova;
 
 public class User : APIUser
 {
