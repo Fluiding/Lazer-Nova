@@ -50,6 +50,8 @@ public static class BeatmapEndpoints
 		Server.App.MapPut("/api/v2/beatmaps/{beatmapId:int}/solo/scores/{scoreId}",
 			async (int beatmapId, int scoreId, HttpRequest request) =>
 			{
+				ActiveScores.Remove(scoreId);
+
 				Beatmap beatmap;
 				var cache = Server.Database.GetCollection<Beatmap>("beatmaps");
 				var hit = cache.FindById(beatmapId);
@@ -134,7 +136,6 @@ public static class BeatmapEndpoints
 				scoreResponse.PP = perfAttributes.Total;
 				scoreResponse.BeatmapId = beatmapId;
 				scoreResponse.EndedAt = DateTimeOffset.UtcNow;
-
 
 				return Results.Content(
 					JsonConvert.SerializeObject(scoreResponse),
