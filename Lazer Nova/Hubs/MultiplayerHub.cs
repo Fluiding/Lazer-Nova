@@ -2,7 +2,7 @@
 
 // ReSharper disable UnusedMember.Global
 
-namespace lazer_echo.Hubs;
+namespace LazerNova.Hubs;
 
 public class MultiplayerHub : Hub
 {

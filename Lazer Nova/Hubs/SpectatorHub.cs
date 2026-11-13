@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using osu.Game.Online.Spectator;
 
-namespace lazer_echo.Hubs;
+namespace LazerNova.Hubs;
 
 public class SpectatorHub : Hub
 {

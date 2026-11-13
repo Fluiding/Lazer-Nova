@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 
-namespace lazer_echo.Hubs;
+namespace LazerNova.Hubs;
 
 public class LoggingHubFilter(ILogger<LoggingHubFilter> logger) : IHubFilter
 {

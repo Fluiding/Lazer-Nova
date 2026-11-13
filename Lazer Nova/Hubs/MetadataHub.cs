@@ -3,7 +3,7 @@ using osu.Game.Online.Metadata;
 
 // ReSharper disable UnusedMember.Global
 
-namespace lazer_echo.Hubs;
+namespace LazerNova.Hubs;
 
 public class MetadataHub : Hub
 {
