@@ -10,6 +10,8 @@
 
     <ItemGroup>
       <None Include="wwwroot\test1.jpg" />
+        <None Remove="server.db"/>
+        <None Remove="server-log.db"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -21,6 +23,11 @@
 
     <ItemGroup>
         <Compile Remove="SDK.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Remove="appsettings.json"/>
+        <Content Remove="appsettings.Development.json"/>
     </ItemGroup>
 
 </Project>

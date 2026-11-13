@@ -50,19 +50,22 @@ public static class BeatmapEndpoints
 		Server.App.MapPut("/api/v2/beatmaps/{beatmapId:int}/solo/scores/{scoreId}",
 			async (int beatmapId, int scoreId, HttpRequest request) =>
 			{
+				Beatmap beatmap;
 				var cache = Server.Database.GetCollection<Beatmap>("beatmaps");
 				var hit = cache.FindById(beatmapId);
+
 				if (hit != null)
-					return Results.Content(
-						JsonConvert.SerializeObject(hit),
-						"application/json"
-					);
+					beatmap = hit;
+				else
+				{
+					var osuContent = await ExternalService.DownloadOsuBeatmap(beatmapId);
+					using var stream = new MemoryStream(Encoding.UTF8.GetBytes(osuContent));
+					using var osuReader = new LineBufferedReader(stream, true);
 
-				var osuContent = await ExternalService.DownloadOsuBeatmap(beatmapId);
-				using var stream = new MemoryStream(Encoding.UTF8.GetBytes(osuContent));
-				using var osuReader = new LineBufferedReader(stream, true);
+					beatmap = Decoder.GetDecoder<Beatmap>(osuReader).Decode(osuReader);
+					cache.Insert(beatmap);
+				}
 
-				var beatmap = Decoder.GetDecoder<Beatmap>(osuReader).Decode(osuReader);
 				var workingBeatmap = new FlatWorkingBeatmap(beatmap);
 				var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
 
@@ -73,31 +76,68 @@ public static class BeatmapEndpoints
 				var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
 
 				var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
-				var user = UserService.GetUserFromRequest(request);
 
 				var difficultyAttributes = ruleset
 					.CreateDifficultyCalculator(workingBeatmap)
 					.Calculate(mods);
 
-				var performanceCalculator = ruleset.CreatePerformanceCalculator();
-				if (performanceCalculator == null)
-					return Results.BadRequest("No performance calculator.");
+				var perfCalculator = ruleset.CreatePerformanceCalculator();
+				if (perfCalculator == null)
+					throw new Exception("No performance calculator.");
 
-				var performanceAttributes = await performanceCalculator.CalculateAsync(
+				var perfAttributes = await perfCalculator.CalculateAsync(
 					scoreInfo,
 					difficultyAttributes,
 					request.HttpContext.RequestAborted
 				);
 
-				var multiplayerScore = JsonConvert.DeserializeObject<MultiplayerScore>(body)!;
-				multiplayerScore.ID = scoreId;
-				multiplayerScore.User = user;
-				multiplayerScore.PP = performanceAttributes.Total;
-				multiplayerScore.BeatmapId = beatmapId;
-				multiplayerScore.EndedAt = DateTimeOffset.UtcNow;
+				var user = UserService.GetUserFromRequest(request)!;
+				user.Statistics.PlayCount++;
+				user.Statistics.PlayTime += (int)Math.Round(beatmap.BeatmapInfo.Length);
+				user.Statistics.TotalScore += score.TotalScore;
+				user.Statistics.RankedScore += score.Ranked ? score.TotalScore : 0;
+				user.Statistics.TotalHits += scoreInfo.HitEvents.Count;
+				user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
+
+				switch (score.Rank)
+				{
+					case ScoreRank.XH:
+						user.Statistics.GradesCount.SSPlus++;
+						break;
+					case ScoreRank.X:
+						user.Statistics.GradesCount.SS++;
+						break;
+					case ScoreRank.SH:
+						user.Statistics.GradesCount.SPlus++;
+						break;
+					case ScoreRank.S:
+						user.Statistics.GradesCount.S++;
+						break;
+					case ScoreRank.A:
+						user.Statistics.GradesCount.A++;
+						break;
+				}
+
+				// todo: add scores table to db
+				user.BeatmapPlayCountsCount += 0;
+				user.Statistics.PP += 0;
+				user.Statistics.GlobalRank += 0;
+				user.Statistics.GlobalRankPercent += 0;
+				user.Statistics.CountryRank += 0;
+				user.Statistics.IsRanked = true;
+				user.RulesetsStatistics["osu"] = user.Statistics;
+				// etc
+
+				var scoreResponse = JsonConvert.DeserializeObject<MultiplayerScore>(body)!;
+				scoreResponse.ID = scoreId;
+				scoreResponse.User = user;
+				scoreResponse.PP = perfAttributes.Total;
+				scoreResponse.BeatmapId = beatmapId;
+				scoreResponse.EndedAt = DateTimeOffset.UtcNow;
+
 
 				return Results.Content(
-					JsonConvert.SerializeObject(multiplayerScore),
+					JsonConvert.SerializeObject(scoreResponse),
 					"application/json"
 				);
 			});
