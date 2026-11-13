@@ -6,9 +6,9 @@ namespace LazerNova.Services;
 
 public static class UserService
 {
-	public static DBUser? SearchUser(string id, string? key)
+	public static User? SearchUser(string id, string? key)
 	{
-		var users = Server.Database.GetCollection<DBUser>("users");
+		var users = Server.Database.GetCollection<User>("users");
 		var user = key == "id"
 			? users.FindById(int.Parse(id))
 			: users.FindOne(x => x.Username == id);
@@ -16,16 +16,16 @@ public static class UserService
 		return user;
 	}
 
-	public static DBUser? GetCurrentUser(HttpRequest request)
+	public static User? GetCurrentUser(HttpRequest request)
 	{
 		var token = AuthService.GetToken(request);
-		var users = Server.Database.GetCollection<DBUser>("users");
+		var users = Server.Database.GetCollection<User>("users");
 		var existing = users.FindOne(x => x.AccessToken == token);
 
 		return existing;
 	}
 
-	public static DBUser GetNewUser()
+	public static User GetNewUser()
 	{
 		return new()
 		{

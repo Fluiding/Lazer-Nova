@@ -1,5 +1,7 @@
 ﻿using LazerNova.Endpoints;
 using LazerNova.Hubs;
+using LazerNova.Models;
+using LazerNova.Services;
 using LiteDB;
 using Microsoft.AspNetCore.SignalR;
 using osu.Game.Online;
@@ -11,13 +13,27 @@ public static class Server
 	public const string Hostname = "https://localhost:5176";
 	public static LiteDatabase Database { get; private set; } = null!;
 	public static WebApplication App { get; private set; } = null!;
+	public static HttpClient Http = new();
 
 	public static async Task Main(string[] args)
 	{
 		BsonMapper.Global.IncludeFields = true;
+		BsonMapper.Global.Entity<User>().Id(x => x.Id);
+		BsonMapper.Global.Entity<CachedBeatmapSet>().Id(x => x.Id);
+
 		Database = new LiteDatabase("server.db");
 
 		var builder = WebApplication.CreateBuilder(args);
+
+		ExternalService.ClientID = builder.Configuration["Osu:ClientID"]
+			?? throw new Exception(
+				"Client ID missing\ndotnet user-secrets init\ndotnet user-secrets set \"Osu:ClientID\" \"YOUR-CLIENT-ID\"");
+
+		ExternalService.ClientSecret = builder.Configuration["Osu:ClientSecret"]
+			?? throw new Exception(
+				"Client Secret missing\ndotnet user-secrets init\ndotnet user-secrets set \"Osu:ClientSecret\" \"YOUR-CLIENT-SECRET\"");
+
+		ExternalService.UpdateOAuthToken();
 
 		builder.WebHost.ConfigureKestrel(options =>
 		{

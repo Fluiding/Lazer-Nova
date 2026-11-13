@@ -7,6 +7,7 @@ public class SpectatorHub : Hub
 {
 	public Task BeginPlaySessionV2(long? scoreToken, SpectatorState state)
 	{
+		Console.WriteLine(scoreToken + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 		return Task.CompletedTask;
 	}
 

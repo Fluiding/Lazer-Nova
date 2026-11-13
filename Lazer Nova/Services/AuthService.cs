@@ -13,7 +13,7 @@ public static class AuthService
 	public static bool IsAuthorized(HttpRequest request)
 	{
 		var token = GetToken(request);
-		var users = Server.Database.GetCollection<DBUser>("users");
+		var users = Server.Database.GetCollection<User>("users");
 		var existing = users.FindOne(x => x.AccessToken == token);
 
 		return existing != null;
@@ -34,7 +34,7 @@ public static class AuthService
 
 	public static IResult Register(string username, string email, string password)
 	{
-		var users = Server.Database.GetCollection<DBUser>("users");
+		var users = Server.Database.GetCollection<User>("users");
 		var existing = users.FindOne(x => x.Username == username);
 
 		if (existing != null)
@@ -52,7 +52,7 @@ public static class AuthService
 
 	public static IResult Login(string username, string password)
 	{
-		var users = Server.Database.GetCollection<DBUser>("users");
+		var users = Server.Database.GetCollection<User>("users");
 		var user = users.FindOne(x => x.Username == username);
 
 		if (user == null || !VerifyHash(user.PasswordHash, password))

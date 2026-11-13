@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>LazerNova</RootNamespace>
+        <UserSecretsId>2d3671e3-b635-4eba-8fbb-c3931276b495</UserSecretsId>
     </PropertyGroup>
 
     <ItemGroup>

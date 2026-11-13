@@ -40,7 +40,7 @@ public static class UserEndpoints
 				return Results.Unauthorized();
 
 			var token = AuthService.GetToken(request);
-			var users = Server.Database.GetCollection<DBUser>("users");
+			var users = Server.Database.GetCollection<User>("users");
 			var existing = users.FindOne(x => x.AccessToken == token);
 
 			return Results.Content(
