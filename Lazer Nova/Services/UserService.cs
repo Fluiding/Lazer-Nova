@@ -4,14 +4,16 @@ using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Scoring;
 using osu.Game.Users;
 
+// ReSharper disable UseCollectionExpression
+
 namespace LazerNova.Services;
 
 public static class UserService
 {
-	public static async Task<User?> SearchUser(string id, string? key, HttpRequest request)
+	public static async Task<User?> SearchUser(HttpRequest request, string id, string? key)
 	{
 		var users = Server.Database.GetCollection<User>("users");
-		var user = key == "id"
+		var user = key != "username"
 			? users.FindById(int.Parse(id))
 			: users.FindOne(x => x.Username == id);
 
@@ -31,8 +33,8 @@ public static class UserService
 		return existing;
 	}
 
-	public static async Task<IResult> GetUserBeatmaps(int userId, string beatmapType, int? offset, int? limit,
-		HttpRequest request)
+	public static async Task<IResult> GetUserScores(HttpRequest request,
+		int userId, string scoresType, int? offset, int? limit)
 	{
 		var users = Server.Database.GetCollection<User>("users");
 		var user = users.FindById(userId);
@@ -43,7 +45,36 @@ public static class UserService
 			return Results.Content(json, "application/json");
 		}
 
-		if (beatmapType == "most_played") return Results.Content(user.MostPlayedBeatmapsJson, "application/json");
+		var scores = scoresType switch
+		{
+			"best" => user.BestScores,
+			"firsts" => user.FirstScores,
+			"recent" => user.RecentScores,
+			"pinned" => user.PinnedScores,
+			_ => []
+		};
+		scores = Utilities.GetPaginatedList(scores, offset, limit);
+
+		return Results.Content(
+			JsonConvert.SerializeObject(scores),
+			"application/json"
+		);
+	}
+
+	public static async Task<IResult> GetUserBeatmaps(HttpRequest request,
+		int userId, string beatmapType, int? offset, int? limit)
+	{
+		var users = Server.Database.GetCollection<User>("users");
+		var user = users.FindById(userId);
+
+		if (user == null)
+		{
+			var json = await ExternalService.ProxyRequest(request);
+			return Results.Content(json, "application/json");
+		}
+
+		if (beatmapType == "most_played")
+			return Results.Content(user.MostPlayedBeatmapsJson, "application/json");
 
 		var beatmapSets = beatmapType switch
 		{
@@ -101,7 +132,6 @@ public static class UserService
 				break;
 		}
 
-		// todo: add scores table to db
 		user.BeatmapPlayCountsCount += 0;
 		user.Statistics.PP += 0;
 		user.Statistics.GlobalRank += 0;
@@ -154,6 +184,25 @@ public static class UserService
 			});
 		else
 			monthlyPlayCount.Count++;
+
+		user.BestScores.Add(score);
+		user.RecentScores.Add(score);
+		if (scoreInfo.Position == 1)
+			user.FirstScores.Add(score);
+
+		user.BestScores = user.BestScores
+			.OrderByDescending(x => x.PP)
+			.Take(100)
+			.ToList();
+
+		user.RecentScores = user.RecentScores
+			.OrderByDescending(x => x.EndedAt)
+			.Take(50)
+			.ToList();
+
+		user.ScoresBestCount = user.BestScores.Count;
+		user.ScoresRecentCount = user.RecentScores.Count;
+		user.ScoresFirstCount = user.FirstScores.Count;
 
 		users.Update(user);
 	}

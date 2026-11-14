@@ -53,6 +53,7 @@ public static class BeatmapService
 		var body = await requestReader.ReadToEndAsync();
 		var score = JsonConvert.DeserializeObject<SoloScoreInfo>(body)!;
 
+
 		string beatmapContent;
 		string apiBeatmapJson;
 		var cache = Server.Database.GetCollection<CachedBeatmap>("beatmaps");
@@ -82,6 +83,9 @@ public static class BeatmapService
 		var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
 		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
 		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
+
+		score.EndedAt = DateTime.UtcNow;
+		score.PP = pp;
 
 		var user = UserService.GetUserFromRequest(request);
 		UserService.UpdateUserAfterScore(score, scoreInfo, beatmap, apiBeatmap, request);

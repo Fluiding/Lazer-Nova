@@ -8,6 +8,7 @@ public class User : APIUser
 	public string PasswordHash { get; set; } = "";
 	public string AccessToken { get; set; } = "";
 	public string RefreshToken { get; set; } = "";
+	public string MostPlayedBeatmapsJson { get; set; } = "[]";
 
 	public List<APIRelation> Relations { get; set; } = [];
 	public List<APIKudosuHistory> KudosuHistory { get; set; } = [];
@@ -18,7 +19,13 @@ public class User : APIUser
 	public List<APIBeatmapSet> GuestBeatmaps { get; set; } = [];
 	public List<APIBeatmapSet> GraveyardBeatmaps { get; set; } = [];
 	public List<APIBeatmapSet> NominatedBeatmaps { get; set; } = [];
-	public string MostPlayedBeatmapsJson { get; set; } = "[]";
+
+	public List<SoloScoreInfo> BestScores { get; set; } = [];
+	public List<SoloScoreInfo> FirstScores { get; set; } = [];
+	public List<SoloScoreInfo> RecentScores { get; set; } = [];
+	public List<SoloScoreInfo> PinnedScores { get; set; } = [];
+
+	public List<APIRecentActivity> RecentActivities { get; set; } = [];
 }
 
 public class CachedBeatmapSet
