@@ -52,21 +52,21 @@ public static class BeatmapEndpoints
 			{
 				ActiveScores.Remove(scoreId);
 
-				Beatmap beatmap;
-				var cache = Server.Database.GetCollection<Beatmap>("beatmaps");
+				string osuContent;
+				var cache = Server.Database.GetCollection<CachedBeatmap>("beatmaps");
 				var hit = cache.FindById(beatmapId);
 
 				if (hit != null)
-					beatmap = hit;
+					osuContent = hit.Json;
 				else
 				{
-					var osuContent = await ExternalService.DownloadOsuBeatmap(beatmapId);
-					using var stream = new MemoryStream(Encoding.UTF8.GetBytes(osuContent));
-					using var osuReader = new LineBufferedReader(stream, true);
-
-					beatmap = Decoder.GetDecoder<Beatmap>(osuReader).Decode(osuReader);
-					cache.Insert(beatmap);
+					osuContent = await ExternalService.DownloadOsuBeatmap(beatmapId);
+					cache.Insert(new CachedBeatmap { Id = beatmapId, Json = osuContent });
 				}
+
+				using var stream = new MemoryStream(Encoding.UTF8.GetBytes(osuContent));
+				using var osuReader = new LineBufferedReader(stream, true);
+				var beatmap = Decoder.GetDecoder<Beatmap>(osuReader).Decode(osuReader);
 
 				var workingBeatmap = new FlatWorkingBeatmap(beatmap);
 				var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
@@ -93,9 +93,12 @@ public static class BeatmapEndpoints
 					request.HttpContext.RequestAborted
 				);
 
-				var user = UserService.GetUserFromRequest(request)!;
+				var token = AuthService.GetToken(request);
+				var users = Server.Database.GetCollection<User>("users");
+				var user = users.FindOne(x => x.AccessToken == token);
+
 				user.Statistics.PlayCount++;
-				user.Statistics.PlayTime += (int)Math.Round(beatmap.BeatmapInfo.Length);
+				user.Statistics.PlayTime += (int)Math.Round(beatmap.BeatmapInfo.Length / 1000 / 60);
 				user.Statistics.TotalScore += score.TotalScore;
 				user.Statistics.RankedScore += score.Ranked ? score.TotalScore : 0;
 				user.Statistics.TotalHits += scoreInfo.HitEvents.Count;
@@ -129,6 +132,8 @@ public static class BeatmapEndpoints
 				user.Statistics.IsRanked = true;
 				user.RulesetsStatistics["osu"] = user.Statistics;
 				// etc
+
+				users.Update(user);
 
 				var scoreResponse = JsonConvert.DeserializeObject<MultiplayerScore>(body)!;
 				scoreResponse.ID = scoreId;

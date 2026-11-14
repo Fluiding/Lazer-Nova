@@ -17,3 +17,9 @@ public class CachedBeatmapSet
 	public int Id { get; init; }
 	public string Json { get; init; } = "";
 }
+
+public class CachedBeatmap
+{
+	public int Id { get; init; }
+	public string Json { get; init; } = "";
+}
