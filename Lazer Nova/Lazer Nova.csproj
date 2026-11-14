@@ -10,8 +10,6 @@
 
     <ItemGroup>
       <None Include="wwwroot\test1.jpg" />
-        <None Remove="server.db"/>
-        <None Remove="server-log.db"/>
     </ItemGroup>
 
     <ItemGroup>

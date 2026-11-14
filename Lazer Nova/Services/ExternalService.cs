@@ -11,7 +11,7 @@ public static class ExternalService
 	public static string ClientID { get; set; } = "";
 	public static string ClientSecret { get; set; } = "";
 
-	public static async void UpdateOAuthToken()
+	private static async Task UpdateOAuthToken()
 	{
 		using var response = await Server.Http.PostAsync(
 			"https://osu.ppy.sh/oauth/token",
@@ -36,6 +36,7 @@ public static class ExternalService
 	public static async Task<HttpResponseMessage> GetAsync(string url)
 	{
 		if (OAuthToken == null)
+		{
 			if (File.Exists("OAuthCache.json"))
 			{
 				var authTokenJson = await File.ReadAllTextAsync("OAuthCache.json");
@@ -44,24 +45,25 @@ public static class ExternalService
 				Server.Http.DefaultRequestHeaders.Authorization =
 					new AuthenticationHeaderValue("Bearer", OAuthToken!.AccessToken);
 			}
+			else
+				await UpdateOAuthToken();
+		}
 
 		var response = await Server.Http.GetAsync(url);
 		if (response.StatusCode != HttpStatusCode.Forbidden)
 			return response;
 
-		UpdateOAuthToken();
+		await UpdateOAuthToken();
 
 		response = await Server.Http.GetAsync(url);
 		response.EnsureSuccessStatusCode();
 		return response;
 	}
 
-	public static async Task<string> DownloadOsuBeatmap(int beatmapID)
+	public static async Task<string> ProxyRequest(HttpRequest request)
 	{
-		var url = $"https://osu.direct/api/osu/{beatmapID}/raw";
-
-		using var response = await Server.Http.GetAsync(url);
-		response.EnsureSuccessStatusCode();
+		var path = $"{request.PathBase}{request.Path}{request.QueryString}";
+		using var response = await GetAsync($"https://osu.ppy.sh{path}");
 		return await response.Content.ReadAsStringAsync();
 	}
 }

@@ -8,42 +8,61 @@ public static class UserEndpoints
 {
 	public static void Register()
 	{
-		Server.App.MapGet("/api/v2/users/{id}", (string id, string? key) => Results.Content(
-			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
-			"application/json"
-		));
+		Server.App.MapGet("/api/v2/users/{id}", async (string id, string? key, HttpRequest request) =>
+			Results.Content(
+				JsonConvert.SerializeObject(await UserService.SearchUser(id, key, request)),
+				"application/json"
+			));
 
-		Server.App.MapGet("/api/v2/users/{id}/osu", (string id, string? key) => Results.Content(
-			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
-			"application/json"
-		));
+		Server.App.MapGet("/api/v2/users/{id}/osu", async (string id, string? key, HttpRequest request) =>
+			Results.Content(
+				JsonConvert.SerializeObject(await UserService.SearchUser(id, key, request)),
+				"application/json"
+			));
 
-		Server.App.MapGet("/api/v2/users/{id}/mania", (string id, string? key) => Results.Content(
-			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
-			"application/json"
-		));
+		Server.App.MapGet("/api/v2/users/{id}/mania", async (string id, string? key, HttpRequest request) =>
+			Results.Content(
+				JsonConvert.SerializeObject(await UserService.SearchUser(id, key, request)),
+				"application/json"
+			));
 
-		Server.App.MapGet("/api/v2/users/{id}/taiko", (string id, string? key) => Results.Content(
-			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
-			"application/json"
-		));
+		Server.App.MapGet("/api/v2/users/{id}/taiko", async (string id, string? key, HttpRequest request) =>
+			Results.Content(
+				JsonConvert.SerializeObject(await UserService.SearchUser(id, key, request)),
+				"application/json"
+			));
 
-		Server.App.MapGet("/api/v2/users/{id}/fruits", (string id, string? key) => Results.Content(
-			JsonConvert.SerializeObject(UserService.SearchUser(id, key)),
-			"application/json"
-		));
+		Server.App.MapGet("/api/v2/users/{id}/fruits", async (string id, string? key, HttpRequest request) =>
+			Results.Content(
+				JsonConvert.SerializeObject(await UserService.SearchUser(id, key, request)),
+				"application/json"
+			));
+
+		Server.App.MapGet("/api/v2/users/{id}/kudosu",
+			async (string id, string? key, int? offset, int? limit, HttpRequest request) =>
+			{
+				var user = await UserService.SearchUser(id, key, request);
+				var kudosuHistory = Utilities.GetPaginatedList(user!.KudosuHistory, offset, limit);
+
+				return Results.Content(
+					JsonConvert.SerializeObject(kudosuHistory),
+					"application/json"
+				);
+			});
+
+		Server.App.MapGet("/api/users/{userId:int}/beatmapsets/{beatmapType}",
+			async (int userId, string beatmapType, int? offset, int? limit, HttpRequest request)
+				=> await UserService.GetUserBeatmaps(userId, beatmapType, offset, limit, request));
 
 		Server.App.MapGet("/api/v2/me", (HttpRequest request) =>
 		{
 			if (!AuthService.IsAuthorized(request))
 				return Results.Unauthorized();
 
-			var token = AuthService.GetToken(request);
-			var users = Server.Database.GetCollection<User>("users");
-			var existing = users.FindOne(x => x.AccessToken == token);
+			var user = UserService.GetUserFromRequest(request);
 
 			return Results.Content(
-				JsonConvert.SerializeObject(existing),
+				JsonConvert.SerializeObject(user),
 				"application/json"
 			);
 		});
@@ -70,12 +89,12 @@ public static class UserEndpoints
 			if (user == null)
 				return Results.Unauthorized();
 
-			var friends = user.Relations
+			var blocks = user.Relations
 				.Where(r => r.RelationType == RelationType.Block)
 				.ToList();
 
 			return Results.Content(
-				JsonConvert.SerializeObject(friends),
+				JsonConvert.SerializeObject(blocks),
 				"application/json"
 			);
 		});

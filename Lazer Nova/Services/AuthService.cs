@@ -39,7 +39,7 @@ public static class AuthService
 		if (existing != null)
 			return Results.BadRequest(new { error = "Username already taken" });
 
-		var newUser = UserService.GetNewUser();
+		var newUser = UserService.GetNewUser(username);
 		newUser.Username = username;
 		newUser.Email = email;
 		newUser.PasswordHash = Hasher.HashPassword(new(), password);

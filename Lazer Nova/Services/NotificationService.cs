@@ -5,19 +5,13 @@ namespace LazerNova.Services;
 
 public static class NotificationService
 {
-	private static readonly List<WebSocket> Clients = [];
-
 	public static async Task HandleWebsocket(HttpContext context)
 	{
 		if (!context.WebSockets.IsWebSocketRequest)
 			return;
 
 		Console.WriteLine("Notification WS connected");
-
 		using var socket = await context.WebSockets.AcceptWebSocketAsync();
-
-		Clients.Add(socket);
-
 		try
 		{
 			var buffer = new byte[4096];
@@ -69,8 +63,6 @@ public static class NotificationService
 		}
 		finally
 		{
-			Clients.Remove(socket);
-
 			if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
 				try
 				{

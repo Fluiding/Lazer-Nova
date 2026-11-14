@@ -16,6 +16,9 @@ public static class Server
 
 	public static async Task Main(string[] args)
 	{
+		Http.DefaultRequestHeaders.TryAddWithoutValidation("x-api-version", "20220705");
+		Http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+
 		BsonMapper.Global.IncludeFields = true;
 		BsonMapper.Global.Entity<User>().Id(x => x.Id);
 		BsonMapper.Global.Entity<CachedBeatmapSet>().Id(x => x.Id);
@@ -31,8 +34,6 @@ public static class Server
 		ExternalService.ClientSecret = builder.Configuration["Osu:ClientSecret"]
 			?? throw new Exception(
 				"Client Secret missing\ndotnet user-secrets init\ndotnet user-secrets set \"Osu:ClientSecret\" \"YOUR-CLIENT-SECRET\"");
-
-		ExternalService.UpdateOAuthToken();
 
 		builder.WebHost.ConfigureKestrel(options =>
 		{
@@ -53,7 +54,11 @@ public static class Server
 
 		App = builder.Build();
 		App.UseStaticFiles();
-		App.UseWebSockets();
+		App.UseWebSockets(new WebSocketOptions
+		{
+			KeepAliveInterval = TimeSpan.FromSeconds(20),
+			KeepAliveTimeout = TimeSpan.FromSeconds(20)
+		});
 
 		App.MapHub<MetadataHub>("/signalr/metadata");
 		App.MapHub<SpectatorHub>("/signalr/spectator");

@@ -11,11 +11,13 @@ public class LoggingHubFilter(ILogger<LoggingHubFilter> logger) : IHubFilter
 	{
 		logger.LogInformation(
 			"""
+
 			===== SIGNALR INVOCATION =====
 			Hub: {Hub}
 			Method: {Method}
 			Connection: {Connection}
 			=============================
+
 			""",
 			context.Hub.GetType().Name,
 			context.HubMethodName,

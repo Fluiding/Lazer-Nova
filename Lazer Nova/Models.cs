@@ -10,6 +10,15 @@ public class User : APIUser
 	public string RefreshToken { get; set; } = "";
 
 	public List<APIRelation> Relations { get; set; } = [];
+	public List<APIKudosuHistory> KudosuHistory { get; set; } = [];
+	public List<APIBeatmapSet> FavoriteBeatmaps { get; set; } = [];
+	public List<APIBeatmapSet> RankedBeatmaps { get; set; } = [];
+	public List<APIBeatmapSet> LovedBeatmaps { get; set; } = [];
+	public List<APIBeatmapSet> PendingBeatmaps { get; set; } = [];
+	public List<APIBeatmapSet> GuestBeatmaps { get; set; } = [];
+	public List<APIBeatmapSet> GraveyardBeatmaps { get; set; } = [];
+	public List<APIBeatmapSet> NominatedBeatmaps { get; set; } = [];
+	public string MostPlayedBeatmapsJson { get; set; } = "[]";
 }
 
 public class CachedBeatmapSet
@@ -22,4 +31,5 @@ public class CachedBeatmap
 {
 	public int Id { get; init; }
 	public string Json { get; init; } = "";
+	public string APIJson { get; init; } = "";
 }
