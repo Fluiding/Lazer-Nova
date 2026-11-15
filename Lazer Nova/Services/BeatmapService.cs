@@ -47,12 +47,9 @@ public static class BeatmapService
 
 	public static async Task<IResult> SubmitScore(int beatmapId, int scoreId, HttpRequest request)
 	{
+		var user = UserService.GetUserFromRequest(request)!;
+		var now = DateTimeOffset.UtcNow;
 		ActiveScores.Remove(scoreId);
-
-		using var requestReader = new StreamReader(request.Body);
-		var body = await requestReader.ReadToEndAsync();
-		var score = JsonConvert.DeserializeObject<SoloScoreInfo>(body)!;
-
 
 		string beatmapContent;
 		string apiBeatmapJson;
@@ -73,21 +70,31 @@ public static class BeatmapService
 			beatmapContent = await response1.Content.ReadAsStringAsync();
 			apiBeatmapJson = await response2.Content.ReadAsStringAsync();
 
-			cache.Insert(new CachedBeatmap { Id = beatmapId, Json = beatmapContent, APIJson = apiBeatmapJson });
+			cache.Insert(new CachedBeatmap
+			{
+				Id = beatmapId,
+				Json = beatmapContent,
+				APIJson = apiBeatmapJson
+			});
 		}
 
-		var apiBeatmap = JsonConvert.DeserializeObject<APIBeatmap>(apiBeatmapJson)!;
+		using var requestReader = new StreamReader(request.Body);
+		var body = await requestReader.ReadToEndAsync();
+		var score = JsonConvert.DeserializeObject<SoloScoreInfo>(body)!;
+
 		var beatmap = await DecodeBeatmap(beatmapContent);
+		var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
 		var pp = await CalculatePP(score, beatmap);
 
-		var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
+		score.EndedAt = now;
+		score.PP = pp;
+		score.BeatmapID = beatmapId;
+		score.RulesetID = ruleset.RulesetInfo.OnlineID;
+		score.UserID = user.Id;
+
+		var apiBeatmap = JsonConvert.DeserializeObject<APIBeatmap>(apiBeatmapJson)!;
 		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
 		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
-
-		score.EndedAt = DateTime.UtcNow;
-		score.PP = pp;
-
-		var user = UserService.GetUserFromRequest(request);
 		UserService.UpdateUserAfterScore(score, scoreInfo, beatmap, apiBeatmap, request);
 
 		var scoreResponse = JsonConvert.DeserializeObject<MultiplayerScore>(body)!;
@@ -95,7 +102,8 @@ public static class BeatmapService
 		scoreResponse.User = user;
 		scoreResponse.PP = pp;
 		scoreResponse.BeatmapId = beatmapId;
-		scoreResponse.EndedAt = DateTimeOffset.UtcNow;
+		scoreResponse.EndedAt = now;
+		scoreResponse.Position = 1; // temp
 
 		return Results.Content(
 			JsonConvert.SerializeObject(scoreResponse),

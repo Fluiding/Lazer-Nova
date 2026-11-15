@@ -2,7 +2,6 @@
 using LazerNova.Hubs;
 using LazerNova.Services;
 using LiteDB;
-using Microsoft.AspNetCore.SignalR;
 using osu.Game.Online;
 
 namespace LazerNova;
@@ -22,7 +21,6 @@ public static class Server
 		BsonMapper.Global.IncludeFields = true;
 		BsonMapper.Global.Entity<User>().Id(x => x.Id);
 		BsonMapper.Global.Entity<CachedBeatmapSet>().Id(x => x.Id);
-
 		Database = new LiteDatabase("server.db");
 
 		var builder = WebApplication.CreateBuilder(args);
@@ -40,17 +38,16 @@ public static class Server
 			options.ListenLocalhost(5176, listen => { listen.UseHttps(); });
 		});
 
-		builder.Services.AddSingleton<LoggingHubFilter>();
-		builder.Services.AddSignalR(options => { options.AddFilter<LoggingHubFilter>(); })
+		builder.Services.AddSignalR()
 			.AddMessagePackProtocol(options =>
 			{
 				options.SerializerOptions = SignalRUnionWorkaroundResolver.OPTIONS;
 			});
 
 		builder.Logging.SetMinimumLevel(LogLevel.Trace);
-		builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR", LogLevel.Trace);
-		builder.Logging.AddFilter("Microsoft.AspNetCore.Http.Connections", LogLevel.Trace);
-		builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher", LogLevel.Trace);
+		builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR", LogLevel.Debug);
+		builder.Logging.AddFilter("Microsoft.AspNetCore.Http.Connections", LogLevel.Debug);
+		builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher", LogLevel.Debug);
 
 		App = builder.Build();
 		App.UseStaticFiles();

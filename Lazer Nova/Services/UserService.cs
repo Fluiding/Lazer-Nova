@@ -95,51 +95,28 @@ public static class UserService
 		);
 	}
 
-	public static void UpdateUserAfterScore(
+	private static double CalculateProfilePP(User user)
+	{
+		var weightedPP = user.Scores
+			.Where(x => x.PP.HasValue)
+			.OrderByDescending(x => x.PP!.Value)
+			.Take(1000)
+			.Select((x, i) => x.PP!.Value * Math.Pow(0.95, i))
+			.Sum();
+
+		var exponent = Math.Min(user.BeatmapPlayCountsCount, 1000);
+		var bonusPP = 416.6667 * (1 - Math.Pow(0.995, exponent));
+
+		return weightedPP + bonusPP;
+	}
+
+	public static void UpdateUserBeatmaps(
+		User user,
 		SoloScoreInfo score,
 		ScoreInfo scoreInfo,
 		Beatmap beatmap,
-		APIBeatmap apiBeatmap,
-		HttpRequest request)
+		APIBeatmap apiBeatmap)
 	{
-		var token = AuthService.GetToken(request);
-		var users = Server.Database.GetCollection<User>("users");
-		var user = users.FindOne(x => x.AccessToken == token);
-
-		user.Statistics.PlayCount++;
-		user.Statistics.PlayTime += (int)Math.Round(beatmap.BeatmapInfo.Length / 1000 / 60);
-		user.Statistics.TotalScore += score.TotalScore;
-		user.Statistics.RankedScore += score.Ranked ? score.TotalScore : 0;
-		user.Statistics.TotalHits += scoreInfo.HitEvents.Count;
-		user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
-
-		switch (score.Rank)
-		{
-			case ScoreRank.XH:
-				user.Statistics.GradesCount.SSPlus++;
-				break;
-			case ScoreRank.X:
-				user.Statistics.GradesCount.SS++;
-				break;
-			case ScoreRank.SH:
-				user.Statistics.GradesCount.SPlus++;
-				break;
-			case ScoreRank.S:
-				user.Statistics.GradesCount.S++;
-				break;
-			case ScoreRank.A:
-				user.Statistics.GradesCount.A++;
-				break;
-		}
-
-		user.BeatmapPlayCountsCount += 0;
-		user.Statistics.PP += 0;
-		user.Statistics.GlobalRank += 0;
-		user.Statistics.GlobalRankPercent += 0;
-		user.Statistics.CountryRank += 0;
-		user.Statistics.IsRanked = true;
-		user.RulesetsStatistics["osu"] = user.Statistics;
-
 		var mostPlayedContainer = JsonConvert.DeserializeObject
 			<List<APIUserMostPlayedBeatmap>>(user.MostPlayedBeatmapsJson)!;
 
@@ -185,20 +162,64 @@ public static class UserService
 		else
 			monthlyPlayCount.Count++;
 
-		user.BestScores.Add(score);
-		user.RecentScores.Add(score);
 		if (scoreInfo.Position == 1)
 			user.FirstScores.Add(score);
+	}
 
-		user.BestScores = user.BestScores
-			.OrderByDescending(x => x.PP)
-			.Take(100)
-			.ToList();
+	public static void UpdateUserAfterScore(
+		SoloScoreInfo score,
+		ScoreInfo scoreInfo,
+		Beatmap beatmap,
+		APIBeatmap apiBeatmap,
+		HttpRequest request)
+	{
+		var token = AuthService.GetToken(request);
+		var users = Server.Database.GetCollection<User>("users");
+		var user = users.FindOne(x => x.AccessToken == token);
 
-		user.RecentScores = user.RecentScores
-			.OrderByDescending(x => x.EndedAt)
-			.Take(50)
-			.ToList();
+		user.Statistics.PlayCount++;
+		user.Statistics.PlayTime += (int)Math.Round(beatmap.BeatmapInfo.Length / 1000 / 60);
+		user.Statistics.TotalScore += score.TotalScore;
+		user.Statistics.RankedScore += score.Ranked ? score.TotalScore : 0;
+		user.Statistics.TotalHits += scoreInfo.HitEvents.Count;
+		user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
+
+		switch (score.Rank)
+		{
+			case ScoreRank.XH:
+				user.Statistics.GradesCount.SSPlus++;
+				break;
+			case ScoreRank.X:
+				user.Statistics.GradesCount.SS++;
+				break;
+			case ScoreRank.SH:
+				user.Statistics.GradesCount.SPlus++;
+				break;
+			case ScoreRank.S:
+				user.Statistics.GradesCount.S++;
+				break;
+			case ScoreRank.A:
+				user.Statistics.GradesCount.A++;
+				break;
+		}
+
+		var existingScore = user.Scores
+			.FirstOrDefault(x => x.BeatmapID == beatmap.BeatmapInfo.OnlineID);
+
+		if (existingScore != null)
+			user.Scores.Remove(existingScore);
+		user.Scores.Add(score);
+
+		user.BeatmapPlayCountsCount += existingScore == null ? 1 : 0;
+
+		user.Statistics.PP = (decimal)CalculateProfilePP(user);
+		user.Statistics.GlobalRank = 1; // temp
+		user.Statistics.GlobalRankPercent += 0;
+		user.Statistics.CountryRank = 1; // temp
+		user.Statistics.IsRanked = true;
+		user.RulesetsStatistics["osu"] = user.Statistics;
+
+		UpdateUserBeatmaps(user, score, scoreInfo, beatmap, apiBeatmap);
 
 		user.ScoresBestCount = user.BestScores.Count;
 		user.ScoresRecentCount = user.RecentScores.Count;

@@ -20,10 +20,15 @@ public class User : APIUser
 	public List<APIBeatmapSet> GraveyardBeatmaps { get; set; } = [];
 	public List<APIBeatmapSet> NominatedBeatmaps { get; set; } = [];
 
-	public List<SoloScoreInfo> BestScores { get; set; } = [];
+	public List<SoloScoreInfo> Scores { get; set; } = [];
 	public List<SoloScoreInfo> FirstScores { get; set; } = [];
-	public List<SoloScoreInfo> RecentScores { get; set; } = [];
 	public List<SoloScoreInfo> PinnedScores { get; set; } = [];
+
+	public List<SoloScoreInfo> BestScores
+		=> [.. Scores.OrderByDescending(x => x.PP).Take(100)];
+
+	public List<SoloScoreInfo> RecentScores
+		=> [.. Scores.OrderByDescending(x => x.EndedAt).Take(100)];
 
 	public List<APIRecentActivity> RecentActivities { get; set; } = [];
 }
