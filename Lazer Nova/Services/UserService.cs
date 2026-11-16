@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using osu.Game.Beatmaps;
+using osu.Game.Online.API.Requests;
 using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Scoring;
 using osu.Game.Users;
@@ -10,7 +11,7 @@ namespace LazerNova.Services;
 
 public static class UserService
 {
-	public static async Task<User?> SearchUser(HttpRequest request, string id, string? key)
+	public static async Task<User?> SearchUser(string id, string? key = "id")
 	{
 		var users = Server.Database.GetCollection<User>("users");
 		var user = key != "username"
@@ -20,8 +21,17 @@ public static class UserService
 		if (user != null)
 			return user;
 
-		var json = await ExternalService.ProxyRequest(request);
+		var url = $"https://osu.ppy.sh/api/v2/users/{id}/?key={key}";
+		using var response = await ExternalService.GetAsync(url);
+
+		var json = await response.Content.ReadAsStringAsync();
 		return JsonConvert.DeserializeObject<User>(json);
+	}
+
+	public static bool IsUserInternal(User user)
+	{
+		return Server.Database.GetCollection<User>("users")
+			.Exists(x => x.Id == user.Id);
 	}
 
 	public static User? GetUserFromRequest(HttpRequest request)
@@ -53,6 +63,7 @@ public static class UserService
 			"pinned" => user.PinnedScores,
 			_ => []
 		};
+
 		scores = Utilities.GetPaginatedList(scores, offset, limit);
 
 		return Results.Content(
@@ -74,7 +85,17 @@ public static class UserService
 		}
 
 		if (beatmapType == "most_played")
-			return Results.Content(user.MostPlayedBeatmapsJson, "application/json");
+		{
+			var mostPlayedBeatmaps = JsonConvert.DeserializeObject
+				<List<APIUserMostPlayedBeatmap>>(user.MostPlayedBeatmapsJson)!;
+
+			mostPlayedBeatmaps = Utilities.GetPaginatedList(mostPlayedBeatmaps, offset, limit);
+
+			return Results.Content(
+				JsonConvert.SerializeObject(mostPlayedBeatmaps),
+				"application/json"
+			);
+		}
 
 		var beatmapSets = beatmapType switch
 		{
@@ -87,6 +108,7 @@ public static class UserService
 			"nominated" => user.NominatedBeatmaps,
 			_ => []
 		};
+
 		beatmapSets = Utilities.GetPaginatedList(beatmapSets, offset, limit);
 
 		return Results.Content(
@@ -164,6 +186,10 @@ public static class UserService
 
 		if (scoreInfo.Position == 1)
 			user.FirstScores.Add(score);
+
+		user.ScoresBestCount = user.BestScores.Count;
+		user.ScoresRecentCount = user.RecentScores.Count;
+		user.ScoresFirstCount = user.FirstScores.Count;
 	}
 
 	public static void UpdateUserAfterScore(
@@ -171,6 +197,7 @@ public static class UserService
 		ScoreInfo scoreInfo,
 		Beatmap beatmap,
 		APIBeatmap apiBeatmap,
+		DateTimeOffset now,
 		HttpRequest request)
 	{
 		var token = AuthService.GetToken(request);
@@ -219,11 +246,24 @@ public static class UserService
 		user.Statistics.IsRanked = true;
 		user.RulesetsStatistics["osu"] = user.Statistics;
 
-		UpdateUserBeatmaps(user, score, scoreInfo, beatmap, apiBeatmap);
+		var recentActivityID = user.RecentActivities.Count > 0
+			? user.RecentActivities.Max(x => x.ID)
+			: 0;
 
-		user.ScoresBestCount = user.BestScores.Count;
-		user.ScoresRecentCount = user.RecentScores.Count;
-		user.ScoresFirstCount = user.FirstScores.Count;
+		user.RecentActivities.Add(new APIRecentActivity
+		{
+			ID = recentActivityID,
+			CreatedAt = now,
+			Type = RecentActivityType.BeatmapPlaycount,
+			ScoreRank = score.Rank,
+			Rank = scoreInfo.Position ?? 1,
+			Beatmap = new APIRecentActivity.RecentActivityBeatmap
+			{
+				Title = ""
+			}
+		});
+
+		UpdateUserBeatmaps(user, score, scoreInfo, beatmap, apiBeatmap);
 
 		users.Update(user);
 	}

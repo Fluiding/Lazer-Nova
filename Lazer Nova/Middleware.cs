@@ -11,8 +11,7 @@ public static class Middleware
 	{
 		var buffer = "\n================================\n";
 		buffer += $"{context.Request.Method} {context.Request.Path}\n";
-		buffer += $"Content-Type: {context.Request.ContentType}\n";
-		buffer += $"Remote IP: {context.Connection.RemoteIpAddress}\n";
+		buffer += $"Query String: {context.Request.QueryString}\n";
 
 		context.Request.EnableBuffering();
 		using var reader = new StreamReader(context.Request.Body, leaveOpen: true);

@@ -95,7 +95,7 @@ public static class BeatmapService
 		var apiBeatmap = JsonConvert.DeserializeObject<APIBeatmap>(apiBeatmapJson)!;
 		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
 		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
-		UserService.UpdateUserAfterScore(score, scoreInfo, beatmap, apiBeatmap, request);
+		UserService.UpdateUserAfterScore(score, scoreInfo, beatmap, apiBeatmap, now, request);
 
 		var scoreResponse = JsonConvert.DeserializeObject<MultiplayerScore>(body)!;
 		scoreResponse.ID = scoreId;
