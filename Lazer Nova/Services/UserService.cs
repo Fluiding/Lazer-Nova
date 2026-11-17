@@ -65,9 +65,13 @@ public static class UserService
 		};
 
 		scores = Utilities.GetPaginatedList(scores, offset, limit);
+		var settings = new JsonSerializerSettings
+		{
+			ContractResolver = new ScoreContractResolver()
+		};
 
 		return Results.Content(
-			JsonConvert.SerializeObject(scores),
+			JsonConvert.SerializeObject(scores, settings),
 			"application/json"
 		);
 	}
@@ -132,7 +136,7 @@ public static class UserService
 		return weightedPP + bonusPP;
 	}
 
-	public static void UpdateUserBeatmaps(
+	private static void UpdateUserBeatmaps(
 		User user,
 		SoloScoreInfo score,
 		ScoreInfo scoreInfo,
@@ -192,6 +196,37 @@ public static class UserService
 		user.ScoresFirstCount = user.FirstScores.Count;
 	}
 
+	private static void UpdateRecentActivities(SoloScoreInfo score,
+		ScoreInfo scoreInfo,
+		Beatmap beatmap,
+		User user,
+		DateTimeOffset now)
+	{
+		var recentActivityID = user.RecentActivities.Count > 0
+			? user.RecentActivities.Max(x => x.ID)
+			: 0;
+
+		user.RecentActivities.Add(new APIRecentActivity
+		{
+			ID = recentActivityID,
+			CreatedAt = now,
+			Type = RecentActivityType.Rank,
+			ScoreRank = score.Rank,
+			Rank = scoreInfo.Position ?? 1,
+			Mode = scoreInfo.Ruleset.ShortName,
+			Beatmap = new APIRecentActivity.RecentActivityBeatmap
+			{
+				Title = beatmap.BeatmapInfo.GetDisplayTitle(),
+				Url = $"/beatmaps/{beatmap.BeatmapInfo.OnlineID}"
+			},
+			User = new APIRecentActivity.RecentActivityUser
+			{
+				Username = user.Username,
+				Url = $"/users/{user.Id}"
+			}
+		});
+	}
+
 	public static void UpdateUserAfterScore(
 		SoloScoreInfo score,
 		ScoreInfo scoreInfo,
@@ -246,23 +281,7 @@ public static class UserService
 		user.Statistics.IsRanked = true;
 		user.RulesetsStatistics["osu"] = user.Statistics;
 
-		var recentActivityID = user.RecentActivities.Count > 0
-			? user.RecentActivities.Max(x => x.ID)
-			: 0;
-
-		user.RecentActivities.Add(new APIRecentActivity
-		{
-			ID = recentActivityID,
-			CreatedAt = now,
-			Type = RecentActivityType.BeatmapPlaycount,
-			ScoreRank = score.Rank,
-			Rank = scoreInfo.Position ?? 1,
-			Beatmap = new APIRecentActivity.RecentActivityBeatmap
-			{
-				Title = ""
-			}
-		});
-
+		UpdateRecentActivities(score, scoreInfo, beatmap, user, now);
 		UpdateUserBeatmaps(user, score, scoreInfo, beatmap, apiBeatmap);
 
 		users.Update(user);

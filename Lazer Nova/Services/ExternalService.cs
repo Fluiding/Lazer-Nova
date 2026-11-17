@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using Newtonsoft.Json;
 using osu.Game.Online.API;
 
@@ -50,7 +49,7 @@ public static class ExternalService
 		}
 
 		var response = await Server.Http.GetAsync(url);
-		if (response.StatusCode != HttpStatusCode.Forbidden)
+		if (response.IsSuccessStatusCode)
 			return response;
 
 		await UpdateOAuthToken();

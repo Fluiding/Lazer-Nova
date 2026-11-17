@@ -3,6 +3,7 @@ using LazerNova.Hubs;
 using LazerNova.Services;
 using LiteDB;
 using osu.Game.Online;
+using osu.Game.Online.API.Requests.Responses;
 
 namespace LazerNova;
 
@@ -18,10 +19,31 @@ public static class Server
 		Http.DefaultRequestHeaders.TryAddWithoutValidation("x-api-version", "20220705");
 		Http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 
-		BsonMapper.Global.IncludeFields = true;
-		BsonMapper.Global.Entity<User>().Id(x => x.Id);
-		BsonMapper.Global.Entity<CachedBeatmapSet>().Id(x => x.Id);
-		Database = new LiteDatabase("server.db");
+		var mapper = new BsonMapper
+		{
+			IncludeFields = true,
+			ResolveMember = (type, member, mapped) =>
+			{
+				if (typeof(APIBeatmap).IsAssignableFrom(type) && member.Name
+					    is nameof(APIBeatmap.Metadata)
+					    or nameof(APIBeatmap.Difficulty)
+					    or nameof(APIBeatmap.Hash))
+				{
+					Console.WriteLine($"Ignoring {type.Name}.{member.Name}");
+					mapped.FieldName = null;
+				}
+
+				if (type == typeof(SoloScoreInfo) &&
+				    member.Name == nameof(SoloScoreInfo.User))
+					mapped.FieldName = null;
+			}
+		};
+
+		mapper.Entity<User>().Id(x => x.Id);
+		mapper.Entity<APIBeatmapSet>().Id(x => x.OnlineID);
+		mapper.Entity<CachedBeatmap>().Id(x => x.OnlineID);
+
+		Database = new LiteDatabase("server.db", mapper);
 
 		var builder = WebApplication.CreateBuilder(args);
 

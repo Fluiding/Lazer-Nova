@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.IO;
 using osu.Game.Online.API.Requests.Responses;
-using osu.Game.Online.Rooms;
 using osu.Game.Scoring;
 using Decoder = osu.Game.Beatmaps.Formats.Decoder;
 
@@ -51,62 +50,64 @@ public static class BeatmapService
 		var now = DateTimeOffset.UtcNow;
 		ActiveScores.Remove(scoreId);
 
-		string beatmapContent;
-		string apiBeatmapJson;
+		CachedBeatmap apiBeatmap;
 		var cache = Server.Database.GetCollection<CachedBeatmap>("beatmaps");
 		var hit = cache.FindById(beatmapId);
 
 		if (hit != null)
 		{
-			beatmapContent = hit.Json;
-			apiBeatmapJson = hit.APIJson;
+			apiBeatmap = hit;
 		}
 		else
 		{
-			using var response1 = await Server.Http.GetAsync($"https://osu.direct/api/osu/{beatmapId}/raw");
+			using var response1 =
+				await Server.Http.GetAsync($"https://osu.direct/api/osu/{beatmapId}/raw");
+
 			using var response2 =
 				await ExternalService.GetAsync($"https://osu.ppy.sh/api/v2/beatmaps/{beatmapId}");
 
-			beatmapContent = await response1.Content.ReadAsStringAsync();
-			apiBeatmapJson = await response2.Content.ReadAsStringAsync();
+			var apiBeatmapJson = await response2.Content.ReadAsStringAsync();
+			apiBeatmap = JsonConvert.DeserializeObject<CachedBeatmap>(apiBeatmapJson)!;
+			apiBeatmap.Content = await response1.Content.ReadAsStringAsync();
 
-			cache.Insert(new CachedBeatmap
-			{
-				Id = beatmapId,
-				Json = beatmapContent,
-				APIJson = apiBeatmapJson
-			});
+			cache.Insert(apiBeatmap);
 		}
 
 		using var requestReader = new StreamReader(request.Body);
 		var body = await requestReader.ReadToEndAsync();
 		var score = JsonConvert.DeserializeObject<SoloScoreInfo>(body)!;
 
-		var beatmap = await DecodeBeatmap(beatmapContent);
+		var beatmap = await DecodeBeatmap(apiBeatmap.Content);
 		var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
-		var pp = await CalculatePP(score, beatmap);
 
+		var beatmapSets = Server.Database.GetCollection<APIBeatmapSet>("beatmapsets");
+		var apiBeatmapSet = beatmapSets.FindById(beatmap.BeatmapInfo.BeatmapSet!.OnlineID);
+
+		// Populate SoloScoreInfo
+		score.ID = user.Scores.Count > 0 ? user.Scores.Max(x => x.ID) + 1 : 0;
 		score.EndedAt = now;
-		score.PP = pp;
+		score.CreatedAt = now;
 		score.BeatmapID = beatmapId;
 		score.RulesetID = ruleset.RulesetInfo.OnlineID;
 		score.UserID = user.Id;
+		score.Beatmap = apiBeatmap;
+		score.BeatmapSet = apiBeatmapSet;
+		score.User = user;
 
-		var apiBeatmap = JsonConvert.DeserializeObject<APIBeatmap>(apiBeatmapJson)!;
+		var pp = await CalculatePP(score, beatmap);
+		score.PP = pp;
+
 		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
 		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
 		UserService.UpdateUserAfterScore(score, scoreInfo, beatmap, apiBeatmap, now, request);
 
-		var scoreResponse = JsonConvert.DeserializeObject<MultiplayerScore>(body)!;
-		scoreResponse.ID = scoreId;
-		scoreResponse.User = user;
-		scoreResponse.PP = pp;
-		scoreResponse.BeatmapId = beatmapId;
-		scoreResponse.EndedAt = now;
-		scoreResponse.Position = 1; // temp
+		var settings = new JsonSerializerSettings
+		{
+			ContractResolver = new ScoreContractResolver()
+		};
 
 		return Results.Content(
-			JsonConvert.SerializeObject(scoreResponse),
+			JsonConvert.SerializeObject(score, settings),
 			"application/json"
 		);
 	}
