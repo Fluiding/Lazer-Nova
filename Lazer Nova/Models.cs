@@ -1,7 +1,4 @@
-﻿using System.Reflection;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
-using osu.Game.Online.API.Requests.Responses;
+﻿using osu.Game.Online.API.Requests.Responses;
 
 namespace LazerNova;
 
@@ -39,27 +36,4 @@ public class User : APIUser
 public class CachedBeatmap : APIBeatmap
 {
 	public string Content { get; set; } = "";
-}
-
-public class ScoreContractResolver : DefaultContractResolver
-{
-	protected override JsonProperty CreateProperty(
-		MemberInfo member,
-		MemberSerialization memberSerialization)
-	{
-		var property = base.CreateProperty(member, memberSerialization);
-
-		if (member.DeclaringType != typeof(SoloScoreInfo))
-			return property;
-
-		property.ShouldSerialize = member.Name switch
-		{
-			nameof(SoloScoreInfo.ID) or nameof(SoloScoreInfo.User) or nameof(SoloScoreInfo.Beatmap)
-				or nameof(SoloScoreInfo.PP) or nameof(SoloScoreInfo.HasReplay) or nameof(SoloScoreInfo.Preserve)
-				or nameof(SoloScoreInfo.Processed) => _ => true,
-			_ => property.ShouldSerialize
-		};
-
-		return property;
-	}
 }

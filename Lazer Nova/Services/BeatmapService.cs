@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using LazerNova.Mappers;
 using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.IO;
@@ -82,9 +83,12 @@ public static class BeatmapService
 
 		var beatmapSets = Server.Database.GetCollection<APIBeatmapSet>("beatmapsets");
 		var apiBeatmapSet = beatmapSets.FindById(beatmap.BeatmapInfo.BeatmapSet!.OnlineID);
+		var pp = await CalculatePP(score, beatmap);
 
 		// Populate SoloScoreInfo
 		score.ID = user.Scores.Count > 0 ? user.Scores.Max(x => x.ID) + 1 : 0;
+		score.Processed = true;
+		score.Preserve = true;
 		score.EndedAt = now;
 		score.CreatedAt = now;
 		score.BeatmapID = beatmapId;
@@ -93,8 +97,6 @@ public static class BeatmapService
 		score.Beatmap = apiBeatmap;
 		score.BeatmapSet = apiBeatmapSet;
 		score.User = user;
-
-		var pp = await CalculatePP(score, beatmap);
 		score.PP = pp;
 
 		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
@@ -103,7 +105,7 @@ public static class BeatmapService
 
 		var settings = new JsonSerializerSettings
 		{
-			ContractResolver = new ScoreContractResolver()
+			ContractResolver = new SoloScoreInfoMapper()
 		};
 
 		return Results.Content(

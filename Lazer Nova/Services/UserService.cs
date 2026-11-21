@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using LazerNova.Mappers;
+using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.Online.API.Requests;
 using osu.Game.Online.API.Requests.Responses;
@@ -67,9 +68,10 @@ public static class UserService
 		scores = Utilities.GetPaginatedList(scores, offset, limit);
 		var settings = new JsonSerializerSettings
 		{
-			ContractResolver = new ScoreContractResolver()
+			ContractResolver = new SoloScoreInfoMapper()
 		};
 
+		var a = JsonConvert.SerializeObject(scores, settings);
 		return Results.Content(
 			JsonConvert.SerializeObject(scores, settings),
 			"application/json"
@@ -266,14 +268,22 @@ public static class UserService
 		}
 
 		var existingScore = user.Scores
-			.FirstOrDefault(x => x.BeatmapID == beatmap.BeatmapInfo.OnlineID);
+			.FirstOrDefault(x => x.BeatmapID == score.BeatmapID);
 
 		if (existingScore != null)
 			user.Scores.Remove(existingScore);
-		user.Scores.Add(score);
+
+		var settings = new JsonSerializerSettings
+		{
+			ContractResolver = new SoloScoreInfoMapper()
+		};
+
+		var serializedScore = JsonConvert.DeserializeObject<SoloScoreInfo>(
+			JsonConvert.SerializeObject(score, settings))!;
+
+		user.Scores.Add(serializedScore);
 
 		user.BeatmapPlayCountsCount += existingScore == null ? 1 : 0;
-
 		user.Statistics.PP = (decimal)CalculateProfilePP(user);
 		user.Statistics.GlobalRank = 1; // temp
 		user.Statistics.GlobalRankPercent += 0;
@@ -391,7 +401,8 @@ public static class UserService
 					A = 0
 				},
 
-				Variants = []
+				Variants = [],
+				RankHistory = new()
 			},
 
 			Rank = null,
