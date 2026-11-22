@@ -36,7 +36,7 @@ public static class BeatmapEndpoints
 
 		Server.App.MapGet("/api/v2/beatmaps/{beatmapId}/scores", async (HttpRequest request) =>
 		{
-			var json = await ExternalService.ProxyRequest(request);
+			var json = await ExternalService.GetBeatmapLeaderboards(request);
 			return Results.Content(json, "application/json");
 		});
 
