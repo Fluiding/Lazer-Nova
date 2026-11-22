@@ -8,35 +8,11 @@ public static class UserEndpoints
 {
 	public static void Register()
 	{
-		Server.App.MapGet("/api/v2/users/{id}", async (string id, string? key) =>
-			Results.Content(
-				JsonConvert.SerializeObject(await UserService.SearchUser(id, key)),
-				"application/json"
-			));
-
-		Server.App.MapGet("/api/v2/users/{id}/osu", async (string id, string? key) =>
-			Results.Content(
-				JsonConvert.SerializeObject(await UserService.SearchUser(id, key)),
-				"application/json"
-			));
-
-		Server.App.MapGet("/api/v2/users/{id}/mania", async (string id, string? key) =>
-			Results.Content(
-				JsonConvert.SerializeObject(await UserService.SearchUser(id, key)),
-				"application/json"
-			));
-
-		Server.App.MapGet("/api/v2/users/{id}/taiko", async (string id, string? key) =>
-			Results.Content(
-				JsonConvert.SerializeObject(await UserService.SearchUser(id, key)),
-				"application/json"
-			));
-
-		Server.App.MapGet("/api/v2/users/{id}/fruits", async (string id, string? key) =>
-			Results.Content(
-				JsonConvert.SerializeObject(await UserService.SearchUser(id, key)),
-				"application/json"
-			));
+		Server.App.MapGet("/api/v2/users/{id}", UserService.GetUserRequest);
+		Server.App.MapGet("/api/v2/users/{id}/osu", UserService.GetUserRequest);
+		Server.App.MapGet("/api/v2/users/{id}/mania", UserService.GetUserRequest);
+		Server.App.MapGet("/api/v2/users/{id}/taiko", UserService.GetUserRequest);
+		Server.App.MapGet("/api/v2/users/{id}/fruits", UserService.GetUserRequest);
 
 		Server.App.MapGet("/api/v2/users/{id}/kudosu",
 			async (HttpRequest request, string id, string? key, int? offset, int? limit) =>

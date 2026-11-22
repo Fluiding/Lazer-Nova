@@ -30,6 +30,21 @@ public static class UserService
 		return JsonConvert.DeserializeObject<User>(json);
 	}
 
+	public static async Task<IResult> GetUserRequest(string id, string? key = "id")
+	{
+		var user = await SearchUser(id, key);
+
+		var settings = new JsonSerializerSettings
+		{
+			NullValueHandling = NullValueHandling.Ignore
+		};
+
+		return Results.Content(
+			JsonConvert.SerializeObject(user, settings),
+			"application/json"
+		);
+	}
+
 	public static bool IsUserInternal(User user)
 	{
 		return Server.Database.GetCollection<User>("users")
@@ -230,23 +245,23 @@ public static class UserService
 
 	private static void UpdateUserRankHistory(User user, int rank)
 	{
-		var rankHistory = user.RankHistory
+		var rankHistory = user.RankHistoryData
 			.FirstOrDefault(x => x.Date == DateTime.UtcNow.Date);
 
 		if (rankHistory == null)
 		{
-			user.RankHistory.Add(new RankHistory
+			user.RankHistoryData.Add(new RankHistory
 			{
 				Date = DateTime.UtcNow.Date,
 				Rank = rank
 			});
 
-			user.Statistics.RankHistory.Data = user.Statistics.RankHistory.Data
+			user.RankHistory.Data = user.RankHistory.Data
 				.Append(rank).TakeLast(90).ToArray();
 		}
 		else
 		{
-			user.Statistics.RankHistory.Data[-1] = rank;
+			user.RankHistory.Data[-1] = rank;
 		}
 	}
 
@@ -326,7 +341,7 @@ public static class UserService
 			return user;
 		}
 
-		if (existingScore != null)
+		if (existingScore != null && existingScore.TotalScore < score.TotalScore)
 			user.Scores.Remove(existingScore);
 		if (scoreInfo.Position == 1)
 			user.FirstScores.Add(score);
@@ -480,12 +495,7 @@ public static class UserService
 					A = 0
 				},
 
-				Variants = [],
-				RankHistory = new APIRankHistory
-				{
-					Data = [],
-					Mode = "osu"
-				}
+				Variants = []
 			},
 
 			Rank = null,

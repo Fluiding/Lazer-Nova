@@ -1,4 +1,5 @@
-﻿using osu.Game.Online.API.Requests.Responses;
+﻿using Newtonsoft.Json;
+using osu.Game.Online.API.Requests.Responses;
 
 namespace LazerNova;
 
@@ -45,8 +46,15 @@ public class User : APIUser
 			.OrderByDescending(x => x.EndedAt)
 	];
 
+	[JsonProperty("rank_history")]
+	public APIRankHistory RankHistory { get; set; } = new()
+	{
+		Data = [],
+		Mode = "osu"
+	};
+
 	public List<APIRecentActivity> RecentActivities { get; set; } = [];
-	public List<RankHistory> RankHistory { get; set; } = [];
+	public List<RankHistory> RankHistoryData { get; set; } = [];
 
 	public List<APIBeatmapSet> FavoriteBeatmaps { get; set; } = [];
 	public List<APIBeatmapSet> RankedBeatmaps { get; set; } = [];

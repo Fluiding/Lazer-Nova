@@ -16,7 +16,7 @@ public static class Server
 
 	public static async Task Main(string[] args)
 	{
-		Http.DefaultRequestHeaders.TryAddWithoutValidation("x-api-version", "20220705");
+		Http.DefaultRequestHeaders.TryAddWithoutValidation("x-api-version", "20240529");
 		Http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 
 		var mapper = DBMapper.GetBsonMapper();
