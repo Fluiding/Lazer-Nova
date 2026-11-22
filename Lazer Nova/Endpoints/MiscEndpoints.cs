@@ -1,4 +1,5 @@
-﻿using LazerNova.Services;
+﻿using System.Globalization;
+using LazerNova.Services;
 using Newtonsoft.Json;
 using osu.Game.Online.API.Requests.Responses;
 
@@ -12,7 +13,7 @@ public static class MiscEndpoints
 			=> Results.Content(JsonConvert.SerializeObject(
 				new APISeasonalBackgrounds
 				{
-					EndDate = DateTimeOffset.Parse("2037-12-01T00:00:00Z"),
+					EndDate = DateTimeOffset.Parse("2037-12-01T00:00:00Z", CultureInfo.InvariantCulture),
 					Backgrounds =
 					[
 						new APISeasonalBackground { Url = $"{Server.Hostname}/test1.jpg" }

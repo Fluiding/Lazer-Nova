@@ -63,12 +63,12 @@ public static class BeatmapEndpoints
 			var beatmaps = Server.Database.GetCollection<CachedBeatmap>("beatmaps");
 			var beatmap = beatmaps.FindById(beatmap_id);
 
-			if (beatmap == null)
-				return Results.Content(
-					await ExternalService.ProxyRequest(request),
-					"application/json"
-				);
+			return Results.Content(
+				await ExternalService.ProxyRequest(request),
+				"application/json"
+			);
 
+			// todo: fix
 			return Results.Content(
 				JsonConvert.SerializeObject(beatmap.BeatmapSet),
 				"application/json"

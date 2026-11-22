@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.Online.API.Requests;
 using osu.Game.Online.API.Requests.Responses;
+using osu.Game.Rulesets;
 using osu.Game.Scoring;
 using osu.Game.Users;
 
@@ -138,10 +139,9 @@ public static class UserService
 		return weightedPP + bonusPP;
 	}
 
-	private static void UpdateUserBeatmaps(
+	private static void UpdateUserPlaycounts(
 		User user,
 		SoloScoreInfo score,
-		ScoreInfo scoreInfo,
 		Beatmap beatmap,
 		APIBeatmap apiBeatmap)
 	{
@@ -190,20 +190,19 @@ public static class UserService
 		else
 			monthlyPlayCount.Count++;
 
-		if (scoreInfo.Position == 1)
-			user.FirstScores.Add(score);
-
-		user.ScoresBestCount = user.BestScores.Count;
 		user.ScoresRecentCount = user.RecentScores.Count;
-		user.ScoresFirstCount = user.FirstScores.Count;
 	}
 
 	private static void UpdateRecentActivities(SoloScoreInfo score,
 		ScoreInfo scoreInfo,
+		Ruleset ruleset,
 		Beatmap beatmap,
 		User user,
 		DateTimeOffset now)
 	{
+		if (scoreInfo.Position >= 1000)
+			return;
+
 		var recentActivityID = user.RecentActivities.Count > 0
 			? user.RecentActivities.Max(x => x.ID)
 			: 0;
@@ -215,7 +214,7 @@ public static class UserService
 			Type = RecentActivityType.Rank,
 			ScoreRank = score.Rank,
 			Rank = scoreInfo.Position ?? 1,
-			Mode = scoreInfo.Ruleset.ShortName,
+			Mode = ruleset.ShortName,
 			Beatmap = new APIRecentActivity.RecentActivityBeatmap
 			{
 				Title = beatmap.BeatmapInfo.GetDisplayTitle(),
@@ -229,72 +228,152 @@ public static class UserService
 		});
 	}
 
-	public static void UpdateUserAfterScore(
+	private static void UpdateUserRankHistory(User user, int rank)
+	{
+		var rankHistory = user.RankHistory
+			.FirstOrDefault(x => x.Date == DateTime.UtcNow.Date);
+
+		if (rankHistory == null)
+		{
+			user.RankHistory.Add(new RankHistory
+			{
+				Date = DateTime.UtcNow.Date,
+				Rank = rank
+			});
+
+			user.Statistics.RankHistory.Data = user.Statistics.RankHistory.Data
+				.Append(rank).TakeLast(90).ToArray();
+		}
+		else
+		{
+			user.Statistics.RankHistory.Data[-1] = rank;
+		}
+	}
+
+	private static double GetRequiredScore(int level)
+	{
+		return level <= 100
+			? 5000.0 / 3.0 *
+			(4 * Math.Pow(level, 3) - 3 * Math.Pow(level, 2) - level) +
+			1.25 * Math.Pow(1.8, level - 60)
+			: 26931190827.0 + 99999999999.0 * (level - 100);
+	}
+
+	private static UserStatistics.LevelInfo CalculateProfileLevel(APIUser user)
+	{
+		var level = 1;
+		while (user.Statistics.TotalScore >= GetRequiredScore(level + 1))
+			level++;
+
+		var current = GetRequiredScore(level);
+		var next = GetRequiredScore(level + 1);
+
+		var progress = (int)Math.Floor(
+			(user.Statistics.TotalScore - current) / (next - current) * 100
+		);
+
+		return new UserStatistics.LevelInfo
+		{
+			Current = level,
+			Progress = Math.Clamp(progress, 0, 99)
+		};
+	}
+
+	private static double CalculateUserAccuracy(User user)
+	{
+		double weightedAccuracy = 0;
+		double totalWeight = 0;
+
+		for (var i = 0; i < user.BestScores.Count; i++)
+		{
+			var weight = Math.Pow(0.95, i);
+			weightedAccuracy += user.BestScores[i].Accuracy * weight;
+			totalWeight += weight;
+		}
+
+		return weightedAccuracy / totalWeight * 100;
+	}
+
+	public static async Task<User> UpdateUserAfterScore(
 		SoloScoreInfo score,
-		ScoreInfo scoreInfo,
 		Beatmap beatmap,
+		Ruleset ruleset,
 		APIBeatmap apiBeatmap,
 		DateTimeOffset now,
 		HttpRequest request)
 	{
+		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
+		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
+
 		var token = AuthService.GetToken(request);
 		var users = Server.Database.GetCollection<User>("users");
 		var user = users.FindOne(x => x.AccessToken == token);
 
-		user.Statistics.PlayCount++;
-		user.Statistics.PlayTime += (int)Math.Round(beatmap.BeatmapInfo.Length / 1000 / 60);
-		user.Statistics.TotalScore += score.TotalScore;
-		user.Statistics.RankedScore += score.Ranked ? score.TotalScore : 0;
-		user.Statistics.TotalHits += scoreInfo.HitEvents.Count;
-		user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
-
-		switch (score.Rank)
-		{
-			case ScoreRank.XH:
-				user.Statistics.GradesCount.SSPlus++;
-				break;
-			case ScoreRank.X:
-				user.Statistics.GradesCount.SS++;
-				break;
-			case ScoreRank.SH:
-				user.Statistics.GradesCount.SPlus++;
-				break;
-			case ScoreRank.S:
-				user.Statistics.GradesCount.S++;
-				break;
-			case ScoreRank.A:
-				user.Statistics.GradesCount.A++;
-				break;
-		}
-
 		var existingScore = user.Scores
 			.FirstOrDefault(x => x.BeatmapID == score.BeatmapID);
 
+		user.Statistics.PlayCount++;
+		user.Statistics.PlayTime += (int)(beatmap.BeatmapInfo.Length / 1000 / 60);
+		user.Statistics.TotalScore += score.TotalScore;
+		user.Statistics.TotalHits += scoreInfo.HitEvents.Count;
+		user.BeatmapPlayCountsCount += existingScore == null ? 1 : 0;
+		UpdateUserPlaycounts(user, score, beatmap, apiBeatmap);
+
+		if (!score.Passed)
+		{
+			user.RulesetsStatistics["osu"] = user.Statistics;
+			users.Update(user);
+			return user;
+		}
+
 		if (existingScore != null)
 			user.Scores.Remove(existingScore);
+		if (scoreInfo.Position == 1)
+			user.FirstScores.Add(score);
+
+		user.ScoresBestCount = user.BestScores.Count;
+		user.ScoresFirstCount = user.FirstScores.Count;
+
+		user.Statistics.RankedScore += score.Ranked ? score.TotalScore : 0;
+		user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
+
+		if (score.Rank == ScoreRank.XH)
+			user.Statistics.GradesCount.SSPlus++;
+		else if (score.Rank == ScoreRank.X)
+			user.Statistics.GradesCount.SS++;
+		else if (score.Rank == ScoreRank.SH)
+			user.Statistics.GradesCount.SPlus++;
+		else if (score.Rank == ScoreRank.S)
+			user.Statistics.GradesCount.S++;
+		else if (score.Rank == ScoreRank.A)
+			user.Statistics.GradesCount.A++;
 
 		var settings = new JsonSerializerSettings
 		{
 			ContractResolver = new SoloScoreInfoMapper()
 		};
 
-		var serializedScore = JsonConvert.DeserializeObject<SoloScoreInfo>(
-			JsonConvert.SerializeObject(score, settings))!;
-
+		var serializedScoreJson = JsonConvert.SerializeObject(score, settings);
+		var serializedScore = JsonConvert.DeserializeObject<SoloScoreInfo>(serializedScoreJson)!;
 		user.Scores.Add(serializedScore);
 
-		user.BeatmapPlayCountsCount += existingScore == null ? 1 : 0;
-		user.Statistics.PP = (decimal)CalculateProfilePP(user);
-		user.Statistics.GlobalRank = 1; // temp
+		var pp = CalculateProfilePP(user);
+		var rank = await ExternalService.GetRankFromPP(pp);
+
+		user.Statistics.PP = (decimal)pp;
+		user.Statistics.GlobalRank = rank;
 		user.Statistics.GlobalRankPercent += 0;
 		user.Statistics.CountryRank = 1; // temp
 		user.Statistics.IsRanked = true;
+		user.Statistics.Level = CalculateProfileLevel(user);
+		user.Statistics.Accuracy = CalculateUserAccuracy(user);
+
+		UpdateUserRankHistory(user, rank);
+		UpdateRecentActivities(score, scoreInfo, ruleset, beatmap, user, now);
+
 		user.RulesetsStatistics["osu"] = user.Statistics;
-
-		UpdateRecentActivities(score, scoreInfo, beatmap, user, now);
-		UpdateUserBeatmaps(user, score, scoreInfo, beatmap, apiBeatmap);
-
 		users.Update(user);
+		return user;
 	}
 
 	public static User GetNewUser(string username)
@@ -402,7 +481,11 @@ public static class UserService
 				},
 
 				Variants = [],
-				RankHistory = new()
+				RankHistory = new APIRankHistory
+				{
+					Data = [],
+					Mode = "osu"
+				}
 			},
 
 			Rank = null,

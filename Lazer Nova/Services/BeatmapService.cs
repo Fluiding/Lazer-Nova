@@ -80,28 +80,23 @@ public static class BeatmapService
 
 		var beatmap = await DecodeBeatmap(apiBeatmap.Content);
 		var ruleset = beatmap.BeatmapInfo.Ruleset.CreateInstance();
-
-		var beatmapSets = Server.Database.GetCollection<APIBeatmapSet>("beatmapsets");
-		var apiBeatmapSet = beatmapSets.FindById(beatmap.BeatmapInfo.BeatmapSet!.OnlineID);
 		var pp = await CalculatePP(score, beatmap);
 
 		// Populate SoloScoreInfo
 		score.ID = user.Scores.Count > 0 ? user.Scores.Max(x => x.ID) + 1 : 0;
+		score.Ranked = apiBeatmap.Status == BeatmapOnlineStatus.Ranked;
+		score.Preserve = score.Passed;
 		score.Processed = true;
-		score.Preserve = true;
 		score.EndedAt = now;
 		score.CreatedAt = now;
 		score.BeatmapID = beatmapId;
 		score.RulesetID = ruleset.RulesetInfo.OnlineID;
 		score.UserID = user.Id;
 		score.Beatmap = apiBeatmap;
-		score.BeatmapSet = apiBeatmapSet;
-		score.User = user;
 		score.PP = pp;
 
-		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
-		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
-		UserService.UpdateUserAfterScore(score, scoreInfo, beatmap, apiBeatmap, now, request);
+		score.User = await UserService.UpdateUserAfterScore(
+			score, beatmap, ruleset, apiBeatmap, now, request);
 
 		var settings = new JsonSerializerSettings
 		{

@@ -10,6 +10,13 @@ public static class ExternalService
 	public static string ClientID { get; set; } = "";
 	public static string ClientSecret { get; set; } = "";
 
+	public static async Task<string> ProxyRequest(HttpRequest request)
+	{
+		var path = $"{request.PathBase}{request.Path}{request.QueryString}";
+		using var response = await GetAsync($"https://osu.ppy.sh{path}");
+		return await response.Content.ReadAsStringAsync();
+	}
+
 	private static async Task UpdateOAuthToken()
 	{
 		using var response = await Server.Http.PostAsync(
@@ -59,10 +66,13 @@ public static class ExternalService
 		return response;
 	}
 
-	public static async Task<string> ProxyRequest(HttpRequest request)
+	public static async Task<int> GetRankFromPP(double pp)
 	{
-		var path = $"{request.PathBase}{request.Path}{request.QueryString}";
-		using var response = await GetAsync($"https://osu.ppy.sh{path}");
-		return await response.Content.ReadAsStringAsync();
+		var url = $"https://osudaily.net/data/getPPRank.php?t=pp&v={pp}&m=0";
+		using var response = await Server.Http.GetAsync(url);
+		response.EnsureSuccessStatusCode();
+
+		var rankString = await response.Content.ReadAsStringAsync();
+		return int.Parse(rankString);
 	}
 }
