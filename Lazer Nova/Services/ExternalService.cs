@@ -62,7 +62,6 @@ public static class ExternalService
 		await UpdateOAuthToken();
 
 		response = await Server.Http.GetAsync(url);
-		response.EnsureSuccessStatusCode();
 		return response;
 	}
 
@@ -74,16 +73,5 @@ public static class ExternalService
 
 		var rankString = await response.Content.ReadAsStringAsync();
 		return int.Parse(rankString);
-	}
-
-	public static async Task<string> GetBeatmapLeaderboards(HttpRequest request)
-	{
-		var query = request.QueryString.Value!.Contains("limit=50")
-			? request.QueryString.Value!.Replace("limit=50", "limit=100")
-			: request.QueryString.Value + "&limit=100";
-
-		var path = $"{request.PathBase}{request.Path}{query}";
-		using var response = await GetAsync($"https://osu.ppy.sh{path}");
-		return await response.Content.ReadAsStringAsync();
 	}
 }

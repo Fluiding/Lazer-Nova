@@ -421,7 +421,7 @@ public static class UserService
 			Colour = "99EB47",
 			AvatarUrl = $"{Server.Hostname}/images.jpg",
 
-			IsAdmin = false,
+			IsAdmin = true,
 			IsSupporter = false,
 			SupportLevel = 0,
 			IsGMT = false,

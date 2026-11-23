@@ -84,9 +84,9 @@ public class SoloScoreInfoMapper : DefaultContractResolver
 		],
 		IncludedUserFields =
 		[
+			nameof(APIUser.Id),
 			nameof(APIUser.AvatarUrl),
 			nameof(APIUser.CountryCode),
-			nameof(APIUser.Id),
 			nameof(APIUser.Active),
 			nameof(APIUser.IsBot),
 			nameof(APIUser.WasRecentlyOnline),
@@ -95,7 +95,11 @@ public class SoloScoreInfoMapper : DefaultContractResolver
 			nameof(APIUser.PMFriendsOnly),
 			nameof(APIUser.Colour),
 			nameof(APIUser.ProfileHue),
-			nameof(APIUser.Username)
+			nameof(APIUser.Username),
+			nameof(APIUser.Team),
+			nameof(APIUser.Cover),
+			"country",
+			"countryCodeString"
 		];
 
 	protected override JsonProperty CreateProperty(

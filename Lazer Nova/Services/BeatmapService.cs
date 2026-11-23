@@ -45,6 +45,68 @@ public static class BeatmapService
 		return perfAttributes.Total;
 	}
 
+	public static async Task<IResult> GetBeatmapLeaderboard(HttpRequest request, int beatmapId)
+	{
+		var query = request.Query.ToDictionary(
+			x => x.Key,
+			x => x.Value.ToString()
+		);
+
+		query["limit"] = "100";
+		var queryString = QueryString.Create(query!).ToString();
+
+		var path = $"{request.PathBase}{request.Path}{queryString}";
+		using var response = await ExternalService.GetAsync($"https://osu.ppy.sh{path}");
+
+		if (!response.IsSuccessStatusCode)
+		{
+			var error = await response.Content.ReadAsStringAsync();
+			Console.WriteLine(error);
+
+			return Results.Content(error,
+				"application/json",
+				statusCode: (int)response.StatusCode
+			);
+		}
+
+		var json = await response.Content.ReadAsStringAsync();
+		var scores = JsonConvert.DeserializeObject<APIScoresCollection>(json)!;
+
+		var user = UserService.GetUserFromRequest(request)!;
+		var score = user.Scores.FirstOrDefault(x => x.BeatmapID == beatmapId);
+
+		if (score != null)
+		{
+			var position = scores.Scores.FindIndex(x => x.TotalScore < score.TotalScore);
+
+			if (position != -1)
+			{
+				scores.Scores.Insert(position, score);
+				scores.Scores.RemoveAt(scores.Scores.Count - 1);
+			}
+			else
+			{
+				var bestScore = scores.Scores[0].TotalScore;
+				position = (int)Math.Max(101, score.TotalScore /
+					bestScore * scores.ScoresCount);
+			}
+
+			scores.UserScore = new APIScoreWithPosition
+			{
+				Position = position,
+				Score = score
+			};
+		}
+
+		var settings = new JsonSerializerSettings
+		{
+			ContractResolver = new SoloScoreInfoMapper()
+		};
+
+		var result = JsonConvert.SerializeObject(scores, settings);
+		return Results.Content(result, "application/json");
+	}
+
 	public static async Task<IResult> SubmitScore(int beatmapId, int scoreId, HttpRequest request)
 	{
 		var user = UserService.GetUserFromRequest(request)!;

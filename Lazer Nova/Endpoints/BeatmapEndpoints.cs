@@ -28,17 +28,15 @@ public static class BeatmapEndpoints
 				return Results.Content(json, "application/json");
 			});
 
-		Server.App.MapGet("/api/v2/beatmapsets/search", async (HttpRequest request) =>
-		{
-			var json = await ExternalService.ProxyRequest(request);
-			return Results.Content(json, "application/json");
-		});
+		Server.App.MapGet("/api/v2/beatmapsets/{id}/download", (int id, HttpRequest request) =>
+			Results.Redirect($"https://osu.direct/api/d/{id}{request.QueryString}"));
 
-		Server.App.MapGet("/api/v2/beatmaps/{beatmapId}/scores", async (HttpRequest request) =>
-		{
-			var json = await ExternalService.GetBeatmapLeaderboards(request);
-			return Results.Content(json, "application/json");
-		});
+		Server.App.MapGet("/api/v2/beatmapsets/search", ExternalService.ProxyRequest);
+
+		Server.App.MapGet("/api/v2/beatmaps/lookup", ExternalService.ProxyRequest);
+
+		Server.App.MapGet("/api/v2/beatmaps/{beatmapId}/scores",
+			BeatmapService.GetBeatmapLeaderboard);
 
 		Server.App.MapPost("/api/v2/beatmaps/{beatmapId}/solo/scores", () =>
 		{
@@ -55,25 +53,26 @@ public static class BeatmapEndpoints
 			async (int beatmapId, int scoreId, HttpRequest request)
 				=> await BeatmapService.SubmitScore(beatmapId, scoreId, request));
 
-		Server.App.MapGet("/api/v2/beatmapsets/lookup", async (HttpRequest request, int? beatmap_id) =>
-		{
-			if (beatmap_id == null)
-				return Results.BadRequest();
+		Server.App.MapGet("/api/v2/beatmapsets/lookup",
+			async (HttpRequest request, int? beatmap_id) =>
+			{
+				if (beatmap_id == null)
+					return Results.BadRequest();
 
-			var beatmaps = Server.Database.GetCollection<CachedBeatmap>("beatmaps");
-			var beatmap = beatmaps.FindById(beatmap_id);
+				var beatmaps = Server.Database.GetCollection<CachedBeatmap>("beatmaps");
+				var beatmap = beatmaps.FindById(beatmap_id);
 
-			return Results.Content(
-				await ExternalService.ProxyRequest(request),
-				"application/json"
-			);
+				return Results.Content(
+					await ExternalService.ProxyRequest(request),
+					"application/json"
+				);
 
-			// todo: fix
-			return Results.Content(
-				JsonConvert.SerializeObject(beatmap.BeatmapSet),
-				"application/json"
-			);
-		});
+				// todo: fix
+				return Results.Content(
+					JsonConvert.SerializeObject(beatmap.BeatmapSet),
+					"application/json"
+				);
+			});
 
 		Server.App.MapGet("/api/v2/comments", async (HttpRequest request)
 			=> await ExternalService.ProxyRequest(request));
