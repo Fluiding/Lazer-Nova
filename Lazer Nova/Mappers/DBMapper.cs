@@ -6,7 +6,7 @@ namespace LazerNova.Mappers;
 
 public static class DBMapper
 {
-	private static readonly HashSet<string> IncludedUserFields =
+	private static readonly HashSet<string> IncludedAPIUserFields =
 	[
 		nameof(APIUser.AvatarUrl),
 		nameof(APIUser.CountryCode),
@@ -22,17 +22,20 @@ public static class DBMapper
 		nameof(APIUser.Username)
 	];
 
+	private static readonly HashSet<string> ExcludedAPIBeatmapFields =
+	[
+		nameof(APIBeatmap.Metadata),
+		nameof(APIBeatmap.Difficulty),
+		nameof(APIBeatmap.Hash)
+	];
+
 	private static void ResolveMember(Type type, MemberInfo member, MemberMapper mapped)
 	{
-		if (type == typeof(APIUser) && !IncludedUserFields.Contains(member.Name))
+		if ((type == typeof(APIUser) && !IncludedAPIUserFields.Contains(member.Name)) ||
+		    (typeof(APIBeatmap).IsAssignableFrom(type) && ExcludedAPIBeatmapFields.Contains(member.Name)))
+		{
 			mapped.FieldName = null;
-
-		if (typeof(APIBeatmap).IsAssignableFrom(type) &&
-		    member.Name
-			    is nameof(APIBeatmap.Metadata)
-			    or nameof(APIBeatmap.Difficulty)
-			    or nameof(APIBeatmap.Hash))
-			mapped.FieldName = null;
+		}
 	}
 
 	public static BsonMapper GetBsonMapper()

@@ -87,8 +87,9 @@ public static class BeatmapService
 			else
 			{
 				var bestScore = scores.Scores[0].TotalScore;
-				position = (int)Math.Max(101, score.TotalScore /
-					bestScore * scores.ScoresCount);
+				var estimated = (double)score.TotalScore /
+					bestScore * scores.ScoresCount;
+				position = (int)Math.Max(101, estimated);
 			}
 
 			scores.UserScore = new APIScoreWithPosition
@@ -154,6 +155,7 @@ public static class BeatmapService
 		score.BeatmapID = beatmapId;
 		score.RulesetID = ruleset.RulesetInfo.OnlineID;
 		score.UserID = user.Id;
+		score.User = user;
 		score.Beatmap = apiBeatmap;
 		score.PP = pp;
 

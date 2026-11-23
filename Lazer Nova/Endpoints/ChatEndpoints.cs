@@ -9,29 +9,26 @@ public static class ChatEndpoints
 {
 	public static void Register()
 	{
-		Server.App.MapGet("/api/v2/chat/updates", () =>
-		{
-			return Results.Content(JsonConvert.SerializeObject(
-				new GetUpdatesResponse
+		Server.App.MapGet("/api/v2/chat/updates", ()
+			=> Results.Content(
+				JsonConvert.SerializeObject(new GetUpdatesResponse
 				{
 					Presence = [],
 					Messages = []
-				}
-			), "application/json");
-		});
+				}),
+				"application/json"
+			));
 
-		Server.App.MapGet("/api/v2/chat/channels", () =>
-		{
-			return Results.Content(JsonConvert.SerializeObject(
-				new List<Channel>()
-			), "application/json");
-		});
+		Server.App.MapGet("/api/v2/chat/channels", ()
+			=> Results.Content(
+				JsonConvert.SerializeObject(new List<Channel>()),
+				"application/json"
+			));
 
-		Server.App.MapPost("/api/v2/chat/ack", () =>
-		{
-			return Results.Content(JsonConvert.SerializeObject(
-				new ChatAckResponse()
-			), "application/json");
-		});
+		Server.App.MapPost("/api/v2/chat/ack", ()
+			=> Results.Content(
+				JsonConvert.SerializeObject(new ChatAckResponse()),
+				"application/json"
+			));
 	}
 }

@@ -74,7 +74,16 @@ public static class BeatmapEndpoints
 				);
 			});
 
-		Server.App.MapGet("/api/v2/comments", async (HttpRequest request)
-			=> await ExternalService.ProxyRequest(request));
+		Server.App.MapGet("/api/v2/comments",
+			ExternalService.ProxyRequest);
+
+		Server.App.MapGet("/api/v2/scores/{id}/download", async (string id) =>
+		{
+			var url = $"https://osu.ppy.sh/api/v2/scores/{id}/download";
+			using var response = await ExternalService.GetAsync(url);
+
+			var replay = await response.Content.ReadAsByteArrayAsync();
+			return Results.Bytes(replay, "application/octet-stream");
+		});
 	}
 }

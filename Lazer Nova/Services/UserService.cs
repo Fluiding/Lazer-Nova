@@ -169,15 +169,12 @@ public static class UserService
 
 		if (mostPlayed == null)
 		{
-			var beatmapSets = Server.Database.GetCollection<APIBeatmapSet>("beatmapsets");
-			var beatmapSet = beatmapSets.FindById(beatmap.BeatmapInfo.BeatmapSet!.OnlineID);
-
 			var json = JsonConvert.SerializeObject(new
 			{
 				beatmap_id = beatmap.BeatmapInfo.OnlineID,
 				count = 1,
 				beatmap = apiBeatmap,
-				beatmapset = beatmapSet
+				beatmapset = apiBeatmap.BeatmapSet
 			});
 
 			mostPlayedContainer.Add(
@@ -366,7 +363,6 @@ public static class UserService
 			user.Scores.Remove(existingScore);
 		}
 
-
 		if (scoreInfo.Position == 1)
 			user.FirstScores.Add(score);
 
@@ -421,9 +417,9 @@ public static class UserService
 			Colour = "99EB47",
 			AvatarUrl = $"{Server.Hostname}/images.jpg",
 
-			IsAdmin = true,
-			IsSupporter = false,
-			SupportLevel = 0,
+			IsAdmin = false,
+			IsSupporter = true,
+			SupportLevel = 3,
 			IsGMT = false,
 			IsQAT = false,
 			IsBNG = false,
@@ -510,11 +506,15 @@ public static class UserService
 					A = 0
 				},
 
-				Variants = []
+				Variants = [],
+				RankHistory = new APIRankHistory
+				{
+					Mode = "osu",
+					Data = new int[90]
+				}
 			},
 
 			Rank = null,
-
 			TournamentBanners = [],
 			Badges = [],
 			Achievements = [],

@@ -9,14 +9,6 @@ public class RankHistory
 	public int Rank { get; set; }
 }
 
-public class HitResultsCount
-{
-	public int Great { get; set; } = 0;
-	public int Ok { get; set; } = 0;
-	public int Meh { get; set; } = 0;
-	public int Miss { get; set; } = 0;
-}
-
 public class User : APIUser
 {
 	public string Email { get; set; } = "";
@@ -24,7 +16,6 @@ public class User : APIUser
 	public string AccessToken { get; set; } = "";
 	public string RefreshToken { get; set; } = "";
 
-	public HitResultsCount HitResultsCount { get; set; } = new();
 	public string MostPlayedBeatmapsJson { get; set; } = "[]";
 
 	public List<APIRelation> Relations { get; set; } = [];
