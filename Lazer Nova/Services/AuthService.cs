@@ -48,7 +48,6 @@ public static class AuthService
 		return Results.Ok();
 	}
 
-
 	public static IResult Login(string username, string password)
 	{
 		var users = Server.Database.GetCollection<User>("users");
@@ -59,7 +58,6 @@ public static class AuthService
 
 		user.AccessToken = RandomNumberGenerator.GetHexString(64, true);
 		user.RefreshToken = RandomNumberGenerator.GetHexString(64, true);
-
 		users.Update(user);
 
 		return Results.Content(JsonConvert.SerializeObject(

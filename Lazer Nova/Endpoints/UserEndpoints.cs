@@ -63,7 +63,7 @@ public static class UserEndpoints
 			var user = UserService.GetUserFromRequest(request);
 			if (user == null)
 				return Results.Unauthorized();
-
+			var a = JsonConvert.SerializeObject(user);
 			return Results.Content(
 				JsonConvert.SerializeObject(user),
 				"application/json"

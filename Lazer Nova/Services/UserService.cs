@@ -88,7 +88,6 @@ public static class UserService
 			ContractResolver = new SoloScoreInfoMapper()
 		};
 
-		var a = JsonConvert.SerializeObject(scores, settings);
 		return Results.Content(
 			JsonConvert.SerializeObject(scores, settings),
 			"application/json"
@@ -220,7 +219,7 @@ public static class UserService
 			? user.RecentActivities.Max(x => x.ID)
 			: 0;
 
-		user.RecentActivities.Add(new APIRecentActivity
+		user.RecentActivities.Insert(0, new APIRecentActivity
 		{
 			ID = recentActivityID,
 			CreatedAt = now,
@@ -327,7 +326,8 @@ public static class UserService
 		Ruleset ruleset,
 		APIBeatmap apiBeatmap,
 		DateTimeOffset now,
-		HttpRequest request)
+		HttpRequest request
+	)
 	{
 		var mods = score.Mods.Select(apiMod => apiMod.ToMod(ruleset)).ToArray();
 		var scoreInfo = score.ToScoreInfo(mods, beatmap.BeatmapInfo);
@@ -389,7 +389,6 @@ public static class UserService
 		user.Statistics.GlobalRank = rank;
 		user.Statistics.GlobalRankPercent += 0;
 		user.Statistics.CountryRank = 1; // temp
-		user.Statistics.IsRanked = true;
 		user.Statistics.Level = CalculateProfileLevel(user);
 		user.Statistics.Accuracy = CalculateUserAccuracy(user);
 
@@ -407,7 +406,7 @@ public static class UserService
 		var users = Server.Database.GetCollection<User>("users");
 		return new()
 		{
-			Id = users.Count() == 0 ? 2 : Math.Max(2, users.Max() + 1),
+			Id = users.Count() == 0 ? 7562902 : Math.Max(2, users.Max() + 1),
 			JoinDate = DateTimeOffset.UtcNow,
 			Username = username,
 			PreviousUsernames = [],
@@ -482,7 +481,7 @@ public static class UserService
 
 			Statistics = new UserStatistics
 			{
-				IsRanked = false,
+				IsRanked = true,
 				GlobalRank = null,
 				GlobalRankPercent = null,
 				CountryRank = null,

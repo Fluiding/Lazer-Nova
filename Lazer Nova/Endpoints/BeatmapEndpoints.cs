@@ -49,9 +49,7 @@ public static class BeatmapEndpoints
 			), "application/json");
 		});
 
-		Server.App.MapPut("/api/v2/beatmaps/{beatmapId:int}/solo/scores/{scoreId}",
-			async (int beatmapId, int scoreId, HttpRequest request)
-				=> await BeatmapService.SubmitScore(beatmapId, scoreId, request));
+		Server.App.MapPut("/api/v2/beatmaps/{beatmapId:int}/solo/scores/{scoreId}", BeatmapService.SubmitScore);
 
 		Server.App.MapGet("/api/v2/beatmapsets/lookup",
 			async (HttpRequest request, int? beatmap_id) =>
@@ -74,8 +72,7 @@ public static class BeatmapEndpoints
 				);
 			});
 
-		Server.App.MapGet("/api/v2/comments",
-			ExternalService.ProxyRequest);
+		Server.App.MapGet("/api/v2/comments", ExternalService.ProxyRequest);
 
 		Server.App.MapGet("/api/v2/scores/{id}/download", async (string id) =>
 		{

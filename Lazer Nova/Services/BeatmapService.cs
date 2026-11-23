@@ -1,9 +1,12 @@
 ﻿using System.Text;
+using LazerNova.Hubs;
 using LazerNova.Mappers;
+using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.IO;
 using osu.Game.Online.API.Requests.Responses;
+using osu.Game.Online.Spectator;
 using osu.Game.Scoring;
 using Decoder = osu.Game.Beatmaps.Formats.Decoder;
 
@@ -108,7 +111,11 @@ public static class BeatmapService
 		return Results.Content(result, "application/json");
 	}
 
-	public static async Task<IResult> SubmitScore(int beatmapId, int scoreId, HttpRequest request)
+	public static async Task<IResult> SubmitScore(
+		int beatmapId,
+		int scoreId,
+		HttpRequest request,
+		IHubContext<SpectatorHub, ISpectatorClient> hub)
 	{
 		var user = UserService.GetUserFromRequest(request)!;
 		var now = DateTimeOffset.UtcNow;
@@ -161,6 +168,12 @@ public static class BeatmapService
 
 		score.User = await UserService.UpdateUserAfterScore(
 			score, beatmap, ruleset, apiBeatmap, now, request);
+
+		new Thread(async () =>
+		{
+			Thread.Sleep(1);
+			await SpectatorHub.NotifyScoreProcessed(hub, user.Id, (long)score.ID!);
+		}).Start();
 
 		var settings = new JsonSerializerSettings
 		{
