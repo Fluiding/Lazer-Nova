@@ -350,7 +350,8 @@ public static class UserService
 
 		UpdateUserPlaycounts(user, score, beatmap, apiBeatmap);
 
-		if (!score.Passed)
+		if (!score.Passed || (existingScore != null
+			    && existingScore.TotalScore >= score.TotalScore))
 		{
 			user.RulesetsStatistics["osu"] = user.Statistics;
 			users.Update(user);
@@ -406,7 +407,7 @@ public static class UserService
 		var users = Server.Database.GetCollection<User>("users");
 		return new()
 		{
-			Id = users.Count() == 0 ? 7562902 : Math.Max(2, users.Max() + 1),
+			Id = users.Count() == 0 ? 2 : Math.Max(2, users.Max() + 1),
 			JoinDate = DateTimeOffset.UtcNow,
 			Username = username,
 			PreviousUsernames = [],

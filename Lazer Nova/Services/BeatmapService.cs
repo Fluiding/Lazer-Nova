@@ -169,10 +169,10 @@ public static class BeatmapService
 		score.User = await UserService.UpdateUserAfterScore(
 			score, beatmap, ruleset, apiBeatmap, now, request);
 
-		new Thread(async () =>
+		new Thread(() =>
 		{
-			Thread.Sleep(1);
-			await SpectatorHub.NotifyScoreProcessed(hub, user.Id, (long)score.ID!);
+			Thread.Sleep(1000);
+			SpectatorHub.NotifyScoreProcessed(hub, user.Id, (long)score.ID!).Wait();
 		}).Start();
 
 		var settings = new JsonSerializerSettings
