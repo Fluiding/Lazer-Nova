@@ -16,7 +16,6 @@ public class SpectatorHub : Hub<ISpectatorClient>
 		int userId,
 		long scoreId)
 	{
-		Console.WriteLine($"sending the score processed thing to {userId}");
 		await hub.Clients.User(userId.ToString())
 			.UserScoreProcessed(userId, scoreId);
 	}

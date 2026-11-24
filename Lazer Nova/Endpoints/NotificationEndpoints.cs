@@ -8,7 +8,7 @@ public static class NotificationEndpoints
 {
 	public static void Register()
 	{
-		Server.App.Map("/notifications", NotificationService.HandleWebsocket);
+		Server.App.Map("/notifications", NotificationService.ConnectWebsocketAsync);
 
 		Server.App.MapGet("/api/v2/notifications", ()
 			=> Results.Content(

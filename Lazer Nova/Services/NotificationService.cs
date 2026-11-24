@@ -1,80 +1,81 @@
-﻿using System.Net.WebSockets;
+﻿using System.Collections.Concurrent;
+using System.Net.WebSockets;
 using System.Text;
+using Newtonsoft.Json;
+using osu.Game.Online.Notifications.WebSocket;
 
 namespace LazerNova.Services;
 
 public static class NotificationService
 {
-	public static async Task HandleWebsocket(HttpContext context)
-	{
-		if (!context.WebSockets.IsWebSocketRequest)
-			return;
+	private static ConcurrentDictionary<int, WebSocket> Clients = [];
 
-		Console.WriteLine("Notification WS connected");
-		using var socket = await context.WebSockets.AcceptWebSocketAsync();
-		try
+	private static async Task HandleIncomingMessages(
+		WebSocket client,
+		HttpContext context)
+	{
+		while (client.State == WebSocketState.Open &&
+		       !context.RequestAborted.IsCancellationRequested)
 		{
 			var buffer = new byte[4096];
+			using var message = new MemoryStream();
+			WebSocketReceiveResult result;
 
-			while (socket.State == WebSocketState.Open &&
-			       !context.RequestAborted.IsCancellationRequested)
+			do
 			{
-				using var message = new MemoryStream();
-				WebSocketReceiveResult result;
+				result = await client.ReceiveAsync(
+					new ArraySegment<byte>(buffer),
+					context.RequestAborted
+				);
 
-				do
+				if (result.MessageType == WebSocketMessageType.Close)
 				{
-					result = await socket.ReceiveAsync(
-						new ArraySegment<byte>(buffer),
-						context.RequestAborted
-					);
+					if (client.State == WebSocketState.CloseReceived)
+						await client.CloseOutputAsync(
+							WebSocketCloseStatus.NormalClosure,
+							"Connection closed",
+							CancellationToken.None
+						);
 
-					if (result.MessageType == WebSocketMessageType.Close)
-					{
-						Console.WriteLine("Notification WS closed");
+					return;
+				}
 
-						if (socket.State == WebSocketState.CloseReceived)
-							await socket.CloseOutputAsync(
-								WebSocketCloseStatus.NormalClosure,
-								"Connection closed",
-								CancellationToken.None
-							);
+				message.Write(buffer, 0, result.Count);
+			} while (!result.EndOfMessage);
 
-						return;
-					}
+			if (result.MessageType != WebSocketMessageType.Text)
+				continue;
 
-					message.Write(buffer, 0, result.Count);
-				} while (!result.EndOfMessage);
-
-				if (result.MessageType != WebSocketMessageType.Text)
-					continue;
-
-				var text = Encoding.UTF8.GetString(message.ToArray());
-				Console.WriteLine($"=== New notification text ===\n{text}\n==========");
-			}
+			var text = Encoding.UTF8.GetString(message.ToArray());
+			Console.WriteLine(text);
 		}
-		catch (WebSocketException)
+	}
+
+	public static async Task ConnectWebsocketAsync(HttpContext context)
+	{
+		using var client = await context.WebSockets.AcceptWebSocketAsync();
+		var user = UserService.GetUserFromRequest(context.Request)!;
+		Clients.TryAdd(user.Id, client);
+
+		try
 		{
-			Console.WriteLine("Notification WS disconnected unexpectedly");
-		}
-		catch (OperationCanceledException)
-		{
-			Console.WriteLine("Notification WS request cancelled");
+			await HandleIncomingMessages(client, context);
 		}
 		finally
 		{
-			if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
-				try
-				{
-					await socket.CloseOutputAsync(
-						WebSocketCloseStatus.NormalClosure,
-						"Connection closed",
-						CancellationToken.None
-					);
-				}
-				catch (WebSocketException) { }
-
-			Console.WriteLine("Notification WS disconnected");
+			Clients.Remove(user.Id, out _);
 		}
+	}
+
+	public static async Task SendMessageAsync(int userId, SocketMessage data)
+	{
+		var bytes = Encoding.UTF8.GetBytes(
+			JsonConvert.SerializeObject(data));
+
+		await Clients[userId].SendAsync(
+			bytes,
+			WebSocketMessageType.Text,
+			true,
+			CancellationToken.None);
 	}
 }
