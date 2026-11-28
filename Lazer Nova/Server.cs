@@ -60,6 +60,8 @@ public static class Server
 		App.MapHub<SpectatorHub>("/signalr/spectator");
 		App.MapHub<MultiplayerHub>("/signalr/multiplayer");
 
+		App.Lifetime.ApplicationStopping.Register(() => { Database.Dispose(); });
+
 		Middleware.Register();
 		AuthEndpoints.Register();
 		UserEndpoints.Register();

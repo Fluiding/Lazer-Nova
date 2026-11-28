@@ -154,134 +154,17 @@ public static class UserService
 		return weightedPP + bonusPP;
 	}
 
-	private static void UpdateUserPlaycounts(
-		User user,
-		SoloScoreInfo score,
-		Beatmap beatmap,
-		APIBeatmap apiBeatmap)
-	{
-		var mostPlayedContainer = JsonConvert.DeserializeObject
-			<List<APIUserMostPlayedBeatmap>>(user.MostPlayedBeatmapsJson)!;
-
-		var mostPlayed = mostPlayedContainer
-			.FirstOrDefault(x => x.BeatmapID == score.BeatmapID);
-
-		if (mostPlayed == null)
-		{
-			var json = JsonConvert.SerializeObject(new
-			{
-				beatmap_id = beatmap.BeatmapInfo.OnlineID,
-				count = 1,
-				beatmap = apiBeatmap,
-				beatmapset = apiBeatmap.BeatmapSet
-			});
-
-			mostPlayedContainer.Add(
-				JsonConvert.DeserializeObject<APIUserMostPlayedBeatmap>(json)!
-			);
-
-			user.MostPlayedBeatmapsJson =
-				JsonConvert.SerializeObject(mostPlayedContainer);
-		}
-		else
-		{
-			mostPlayed.PlayCount++;
-		}
-
-		var month = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-
-		var monthlyPlayCount = user.MonthlyPlayCounts
-			.FirstOrDefault(x => x.Date == month);
-
-		if (monthlyPlayCount == null)
-			_ = user.MonthlyPlayCounts.Append(new APIUserHistoryCount
-			{
-				Date = month,
-				Count = 1
-			});
-		else
-			monthlyPlayCount.Count++;
-
-		user.ScoresRecentCount = user.RecentScores.Count;
-	}
-
-	private static void UpdateRecentActivities(SoloScoreInfo score,
-		ScoreInfo scoreInfo,
-		Ruleset ruleset,
-		Beatmap beatmap,
-		User user,
-		DateTimeOffset now)
-	{
-		if (scoreInfo.Position >= 1000)
-			return;
-
-		var recentActivityID = user.RecentActivities.Count > 0
-			? user.RecentActivities.Max(x => x.ID)
-			: 0;
-
-		user.RecentActivities.Insert(0, new APIRecentActivity
-		{
-			ID = recentActivityID,
-			CreatedAt = now,
-			Type = RecentActivityType.Rank,
-			ScoreRank = score.Rank,
-			Rank = scoreInfo.Position ?? 1,
-			Mode = ruleset.ShortName,
-			Beatmap = new APIRecentActivity.RecentActivityBeatmap
-			{
-				Title = beatmap.BeatmapInfo.GetDisplayTitle(),
-				Url = $"/beatmaps/{beatmap.BeatmapInfo.OnlineID}"
-			},
-			User = new APIRecentActivity.RecentActivityUser
-			{
-				Username = user.Username,
-				Url = $"/users/{user.Id}"
-			}
-		});
-	}
-
-	private static void UpdateUserRankHistory(User user, int rank)
-	{
-		var rankHistory = user.RankHistoryData
-			.FirstOrDefault(x => x.Date == DateTime.UtcNow.Date);
-
-		if (rankHistory == null)
-		{
-			user.RankHistoryData.Add(new RankHistory
-			{
-				Date = DateTime.UtcNow.Date,
-				Rank = rank
-			});
-
-			user.RankHistory.Data = user.RankHistory.Data
-				.Append(rank).TakeLast(90).ToArray();
-		}
-		else
-		{
-			user.RankHistory.Data[-1] = rank;
-		}
-	}
-
-	private static double GetRequiredScore(int level)
-	{
-		return level <= 100
-			? 5000.0 / 3.0 *
-			(4 * Math.Pow(level, 3) - 3 * Math.Pow(level, 2) - level) +
-			1.25 * Math.Pow(1.8, level - 60)
-			: 26931190827.0 + 99999999999.0 * (level - 100);
-	}
-
-	private static UserStatistics.LevelInfo CalculateProfileLevel(APIUser user)
+	private static UserStatistics.LevelInfo CalculateProfileLevel(long totalScore)
 	{
 		var level = 1;
-		while (user.Statistics.TotalScore >= GetRequiredScore(level + 1))
+		while (totalScore >= GetRequiredScore(level + 1))
 			level++;
 
 		var current = GetRequiredScore(level);
 		var next = GetRequiredScore(level + 1);
 
 		var progress = (int)Math.Floor(
-			(user.Statistics.TotalScore - current) / (next - current) * 100
+			(totalScore - current) / (next - current) * 100
 		);
 
 		return new UserStatistics.LevelInfo
@@ -289,6 +172,15 @@ public static class UserService
 			Current = level,
 			Progress = Math.Clamp(progress, 0, 99)
 		};
+
+		double GetRequiredScore(int lvl)
+		{
+			return lvl <= 100
+				? 5000.0 / 3.0 *
+				(4 * Math.Pow(lvl, 3) - 3 * Math.Pow(lvl, 2) - lvl) +
+				1.25 * Math.Pow(1.8, lvl - 60)
+				: 26931190827.0 + 99999999999.0 * (lvl - 100);
+		}
 	}
 
 	private static double CalculateUserAccuracy(User user)
@@ -304,20 +196,6 @@ public static class UserService
 		}
 
 		return weightedAccuracy / totalWeight * 100;
-	}
-
-	private static void AddGradeToUser(ScoreRank rank, APIUser user, int amount = 1)
-	{
-		if (rank == ScoreRank.XH)
-			user.Statistics.GradesCount.SSPlus += amount;
-		else if (rank == ScoreRank.X)
-			user.Statistics.GradesCount.SS += amount;
-		else if (rank == ScoreRank.SH)
-			user.Statistics.GradesCount.SPlus += amount;
-		else if (rank == ScoreRank.S)
-			user.Statistics.GradesCount.S += amount;
-		else if (rank == ScoreRank.A)
-			user.Statistics.GradesCount.A += amount;
 	}
 
 	public static async Task<User> UpdateUserAfterScore(
@@ -348,58 +226,178 @@ public static class UserService
 			.Where(x => x.Key.IsHit())
 			.Sum(x => x.Value);
 
-		UpdateUserPlaycounts(user, score, beatmap, apiBeatmap);
+		UpdateUserPlaycounts();
 
-		if (!score.Passed || (existingScore != null
-			    && existingScore.TotalScore >= score.TotalScore))
+		if (!score.Passed || (existingScore != null &&
+			    existingScore.TotalScore >= score.TotalScore))
 		{
 			user.RulesetsStatistics["osu"] = user.Statistics;
 			users.Update(user);
 			return user;
 		}
 
-		if (existingScore != null && existingScore.TotalScore < score.TotalScore)
-		{
-			AddGradeToUser(existingScore.Rank, user, -1);
-			user.Scores.Remove(existingScore);
-		}
+		UpdateScores();
 
-		if (scoreInfo.Position == 1)
-			user.FirstScores.Add(score);
+		var userPP = CalculateProfilePP(user);
+		user.Statistics.PP = (decimal)userPP;
 
-		user.ScoresBestCount = user.BestScores.Count;
-		user.ScoresFirstCount = user.FirstScores.Count;
-
-		user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
-		user.Statistics.RankedScore += apiBeatmap.Status == BeatmapOnlineStatus.Ranked
-			? score.TotalScore : 0;
-
-		var settings = new JsonSerializerSettings
-		{
-			ContractResolver = new SoloScoreInfoMapper()
-		};
-
-		var serializedScoreJson = JsonConvert.SerializeObject(score, settings);
-		var serializedScore = JsonConvert.DeserializeObject<SoloScoreInfo>(serializedScoreJson)!;
-		user.Scores.Add(serializedScore);
-
-		var pp = CalculateProfilePP(user);
-		var rank = await ExternalService.GetRankFromPP(pp);
-
-		user.Statistics.PP = (decimal)pp;
+		var rank = await ExternalService.GetRankFromPP(userPP);
 		user.Statistics.GlobalRank = rank;
 		user.Statistics.GlobalRankPercent += 0;
 		user.Statistics.CountryRank = 1; // temp
-		user.Statistics.Level = CalculateProfileLevel(user);
+		user.Statistics.MaxCombo = Math.Max(user.Statistics.MaxCombo, score.MaxCombo);
+
+		UpdateRankHistory();
+
+		user.Statistics.Level = CalculateProfileLevel(user.Statistics.TotalScore);
 		user.Statistics.Accuracy = CalculateUserAccuracy(user);
 
-		AddGradeToUser(score.Rank, user);
-		UpdateUserRankHistory(user, rank);
-		UpdateRecentActivities(score, scoreInfo, ruleset, beatmap, user, now);
+		UpdateGrade();
+		UpdateRecentActivities();
 
 		user.RulesetsStatistics["osu"] = user.Statistics;
 		users.Update(user);
 		return user;
+
+		void UpdateUserPlaycounts()
+		{
+			var mostPlayedContainer = JsonConvert.DeserializeObject
+				<List<APIUserMostPlayedBeatmap>>(user.MostPlayedBeatmapsJson)!;
+
+			var mostPlayed = mostPlayedContainer
+				.FirstOrDefault(x => x.BeatmapID == score.BeatmapID);
+
+			if (mostPlayed == null)
+			{
+				var json = JsonConvert.SerializeObject(new
+				{
+					beatmap_id = beatmap.BeatmapInfo.OnlineID,
+					count = 1,
+					beatmap = apiBeatmap,
+					beatmapset = apiBeatmap.BeatmapSet
+				});
+
+				mostPlayedContainer.Add(
+					JsonConvert.DeserializeObject<APIUserMostPlayedBeatmap>(json)!
+				);
+
+				user.MostPlayedBeatmapsJson =
+					JsonConvert.SerializeObject(mostPlayedContainer);
+			}
+			else
+			{
+				mostPlayed.PlayCount++;
+			}
+
+			var month = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+			var monthlyPlayCount = user.MonthlyPlayCounts
+				.FirstOrDefault(x => x.Date == month);
+
+			if (monthlyPlayCount == null)
+				_ = user.MonthlyPlayCounts.Append(new APIUserHistoryCount
+				{
+					Date = month,
+					Count = 1
+				});
+			else
+				monthlyPlayCount.Count++;
+
+			user.ScoresRecentCount = user.RecentScores.Count;
+		}
+
+		void UpdateScores()
+		{
+			if (existingScore != null && existingScore.TotalScore < score.TotalScore)
+			{
+				UpdateGrade(-1);
+				user.Scores.Remove(existingScore);
+			}
+
+			user.Statistics.RankedScore += apiBeatmap.Status == BeatmapOnlineStatus.Ranked
+				? score.TotalScore - (existingScore?.TotalScore ?? 0) : 0;
+
+			var settings = new JsonSerializerSettings
+			{
+				ContractResolver = new SoloScoreInfoMapper()
+			};
+
+			var serializedScoreJson = JsonConvert.SerializeObject(score, settings);
+			var serializedScore = JsonConvert.DeserializeObject<SoloScoreInfo>(serializedScoreJson)!;
+
+			user.Scores.Add(serializedScore);
+			if (scoreInfo.Position == 1)
+				user.FirstScores.Add(serializedScore);
+
+			user.ScoresBestCount = user.BestScores.Count;
+			user.ScoresFirstCount = user.FirstScores.Count;
+		}
+
+		void UpdateGrade(int amount = 1)
+		{
+			if (score.Rank == ScoreRank.XH)
+				user.Statistics.GradesCount.SSPlus += amount;
+			else if (score.Rank == ScoreRank.X)
+				user.Statistics.GradesCount.SS += amount;
+			else if (score.Rank == ScoreRank.SH)
+				user.Statistics.GradesCount.SPlus += amount;
+			else if (score.Rank == ScoreRank.S)
+				user.Statistics.GradesCount.S += amount;
+			else if (score.Rank == ScoreRank.A)
+				user.Statistics.GradesCount.A += amount;
+		}
+
+		void UpdateRankHistory()
+		{
+			var rankHistory = user.RankHistoryData
+				.FirstOrDefault(x => x.Date == DateTime.UtcNow.Date);
+
+			if (rankHistory == null)
+			{
+				user.RankHistoryData.Add(new RankHistory
+				{
+					Date = DateTime.UtcNow.Date,
+					Rank = rank
+				});
+
+				user.RankHistory.Data = user.RankHistory.Data
+					.Append(rank).TakeLast(90).ToArray();
+			}
+			else
+			{
+				user.RankHistory.Data[-1] = rank;
+			}
+		}
+
+		void UpdateRecentActivities()
+		{
+			if (scoreInfo.Position >= 1000)
+				return;
+
+			var recentActivityID = user.RecentActivities.Count > 0
+				? user.RecentActivities.Max(x => x.ID)
+				: 0;
+
+			user.RecentActivities.Insert(0, new APIRecentActivity
+			{
+				ID = recentActivityID,
+				CreatedAt = now,
+				Type = RecentActivityType.Rank,
+				ScoreRank = score.Rank,
+				Rank = scoreInfo.Position ?? 1,
+				Mode = ruleset.ShortName,
+				Beatmap = new APIRecentActivity.RecentActivityBeatmap
+				{
+					Title = beatmap.BeatmapInfo.GetDisplayTitle(),
+					Url = $"/beatmaps/{beatmap.BeatmapInfo.OnlineID}"
+				},
+				User = new APIRecentActivity.RecentActivityUser
+				{
+					Username = user.Username,
+					Url = $"/users/{user.Id}"
+				}
+			});
+		}
 	}
 
 	public static User GetNewUser(string username)
